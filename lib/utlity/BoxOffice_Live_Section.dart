@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../constants/api_endpoints.dart';
-import '../screens/movie_view.dart';
+import '../screens/movie_buy.dart';
+import '../theme/AppTheme.dart';
+import '../screens/search_screen.dart';
 
 class BoxOfficeLiveSection extends StatefulWidget {
   const BoxOfficeLiveSection({super.key});
@@ -14,7 +16,6 @@ class _BoxOfficeLiveSectionState extends State<BoxOfficeLiveSection> {
   List<dynamic> movies = [];
   bool isLoading = true;
 
-  static const Color primaryColor = Color(0xFFFFD700); // gold accent
   int offset = 0;
   final int limit = 5;
   final ScrollController _scrollController = ScrollController();
@@ -93,7 +94,7 @@ class _BoxOfficeLiveSectionState extends State<BoxOfficeLiveSection> {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(20.0),
-          child: CircularProgressIndicator(color: primaryColor),
+          child: CircularProgressIndicator(color: AppTheme.primaryColor),
         ),
       );
     }
@@ -115,78 +116,118 @@ class _BoxOfficeLiveSectionState extends State<BoxOfficeLiveSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
+          // 🔹 Header with underline
+          // 🔹 Header with underline + View All
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                const Text(
-                  "Box Office — Live",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                // 🎬 Title + underline
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "🎬 Box Office — Live",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      height: 3,
+                      width: 120,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ],
                 ),
+
+                // 🔸 View All button
                 TextButton(
-                  onPressed: () {},
-                  child: const Text(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const SearchScreen(initialType: "Box_Office"),
+                      ),
+                    );
+                  },
+                  child: Text(
                     "View All",
-                    style: TextStyle(color: Colors.blue),
+                    style: TextStyle(
+                      color: AppTheme.primaryColor,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
+
           const SizedBox(height: 12),
 
-          // Horizontal scroll cards
+          // 🔹 Horizontal scroll cards
           SizedBox(
-            height: 220,
+            height: 230,
             child: ListView.builder(
-              controller: _scrollController, // ✅ important
+              controller: _scrollController,
               scrollDirection: Axis.horizontal,
               itemCount: movies.length + (isFetchingMore ? 1 : 0),
               padding: const EdgeInsets.symmetric(horizontal: 12),
               itemBuilder: (context, index) {
                 if (index >= movies.length) {
-                  // Loader for more items
                   return const SizedBox(
                     width: 160,
                     child: Center(
                       child: Padding(
                         padding: EdgeInsets.all(20.0),
-                        child: CircularProgressIndicator(color: primaryColor),
+                        child: CircularProgressIndicator(
+                          color: AppTheme.primaryColor,
+                        ),
                       ),
                     ),
                   );
                 }
 
                 final movie = movies[index];
-                final posterUrl = movie['posterUrl'] ?? '';
                 final progress = _getWeekProgress(movie['status']);
+
                 return GestureDetector(
                   onTap: () {
                     final movieId = movie['id'];
-                    debugPrint("🎬 Clicked on movie ID: $movieId");
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => MovieViewScreen(
+                        builder: (_) => MovieBuyScreen(
                           movieId: movieId,
-                          selectedMainTab: 'News',
-                          selectedSubTab: 'Collection Report',
+                          menu: 'News',
+                          submenu: 'Collection Report',
                         ),
                       ),
                     );
-                    // Example navigation:
-                    // Navigator.pushNamed(context, '/movie_detail', arguments: movieId);
                   },
                   child: Container(
                     width: 160,
                     margin: EdgeInsets.only(
                       right: index == movies.length - 1 ? 0 : 12,
                     ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.primaryColor.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(2, 4),
+                        ),
+                      ],
+                    ),
                     child: Stack(
                       children: [
-                        // Poster image
+                        // 🎞 Poster
                         ClipRRect(
                           borderRadius: BorderRadius.circular(16),
                           child: Image.network(
@@ -215,7 +256,7 @@ class _BoxOfficeLiveSectionState extends State<BoxOfficeLiveSection> {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: primaryColor.withOpacity(0.85),
+                                color: AppTheme.primaryColor,
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: const Text(
@@ -229,24 +270,21 @@ class _BoxOfficeLiveSectionState extends State<BoxOfficeLiveSection> {
                             ),
                           ),
 
-                        // 🎬 Overlay info (bottom)
+                        // 📊 Overlay info bottom
                         Positioned(
-                          bottom: 12,
-                          left: 12,
-                          right: 12,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.5),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
+                          bottom: 10,
+                          left: 8,
+                          right: 8,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.55),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.all(8),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
                                   movie['title'] ?? '',
                                   style: const TextStyle(
                                     fontSize: 14,
@@ -256,54 +294,28 @@ class _BoxOfficeLiveSectionState extends State<BoxOfficeLiveSection> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                              ),
-                              const SizedBox(height: 2),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 1,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.4),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  movie['movieTypeName'] ?? '',
+                                const SizedBox(height: 3),
+                                Text(
+                                  "${movie['language'] ?? ''} • ${movie['movieTypeName'] ?? ''}",
                                   style: const TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 11,
                                     color: Colors.white70,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              ),
-                              const SizedBox(height: 4),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 1,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.4),
+                                const SizedBox(height: 6),
+                                ClipRRect(
                                   borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  movie['language'] ?? '',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.white70,
+                                  child: LinearProgressIndicator(
+                                    value: progress,
+                                    backgroundColor: Colors.white24,
+                                    color: AppTheme.primaryColor,
+                                    minHeight: 6,
                                   ),
                                 ),
-                              ),
-                              const SizedBox(height: 4),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
-                                child: LinearProgressIndicator(
-                                  value: _getWeekProgress(movie['status']),
-                                  backgroundColor: Colors.white24,
-                                  color: primaryColor,
-                                  minHeight: 6,
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ],

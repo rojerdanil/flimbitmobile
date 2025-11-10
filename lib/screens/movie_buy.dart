@@ -6,12 +6,19 @@ import '../services/api_service.dart';
 import '../constants/api_endpoints.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import '../screens/movie_menu_controller.dart';
 
 class MovieBuyScreen extends StatefulWidget {
   final int movieId;
+  final String? menu; // optional main menu
+  final String? submenu; // optional sub menu
 
-  const MovieBuyScreen({super.key, required this.movieId});
-
+  const MovieBuyScreen({
+    super.key,
+    required this.movieId,
+    this.menu,
+    this.submenu,
+  });
   @override
   State<MovieBuyScreen> createState() => _MovieBuyScreenState();
 }
@@ -29,6 +36,7 @@ class _MovieBuyScreenState extends State<MovieBuyScreen>
   double investedAmount = 0;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
+  final MovieMenuController menuController = MovieMenuController();
 
   // --- Shares & Offers
   late TextEditingController _shareController;
@@ -67,6 +75,9 @@ class _MovieBuyScreenState extends State<MovieBuyScreen>
   late Razorpay _razorpay;
   double platformCommision = 0;
   double profitCommision = 0;
+  String? selectedMainTab;
+  String? selectedSubTab;
+
   @override
   void initState() {
     super.initState();
@@ -90,6 +101,14 @@ class _MovieBuyScreenState extends State<MovieBuyScreen>
     _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
     _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
     _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+
+    if (widget.menu != null) {
+      menuController.selectMainTab(widget.menu!);
+      expandedDescription = true;
+    }
+    if (widget.submenu != null) {
+      menuController.selectSubTab(widget.submenu!);
+    }
     fetchMovieDetails();
   }
 
@@ -235,7 +254,7 @@ class _MovieBuyScreenState extends State<MovieBuyScreen>
 
   void updateShares(String value) {
     final parsed = int.tryParse(value);
-    if (parsed != null && parsed > 0) {
+    if (parsed != null && parsed >= 0) {
       setState(() {
         numberOfShares = parsed;
         calculated = false;
@@ -256,6 +275,7 @@ class _MovieBuyScreenState extends State<MovieBuyScreen>
       calculated = true;
       showOffer = true;
       localOffers = [];
+      expandedDescription = false;
     });
 
     try {
@@ -1158,13 +1178,256 @@ class _MovieBuyScreenState extends State<MovieBuyScreen>
           ),
           Align(
             alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: () =>
-                  setState(() => expandedDescription = !expandedDescription),
-              child: Text(expandedDescription ? "Show less" : "Read more"),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 🔹 Toggle description
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      expandedDescription = !expandedDescription;
+                    });
+                  },
+                  child: Text(
+                    expandedDescription ? "Show less" : "Read more",
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+
+                // 🔹 Show Movie Menu only when expanded
+                if (expandedDescription)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 10),
+                      _buildMainTabBar(), // 🔸 easy to reuse
+                      menuController.buildSubTabBar(() => setState(() {})),
+                      // 🟡 Sub-menu content container (with soft yellow background)
+                      // 🟡 Dynamic Submenu Content Area with Fade + Auto Height
+                      // 🟡 Dynamic Submenu Content Area with Fade + Slide + Auto Height
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 350),
+                        curve: Curves.easeInOut,
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 350),
+                          switchInCurve: Curves.easeInOut,
+                          switchOutCurve: Curves.easeInOut,
+                          transitionBuilder: (child, animation) {
+                            final slideAnimation =
+                                Tween<Offset>(
+                                  begin: const Offset(
+                                    0.1,
+                                    0.05,
+                                  ), // slightly from right-bottom
+                                  end: Offset.zero,
+                                ).animate(
+                                  CurvedAnimation(
+                                    parent: animation,
+                                    curve: Curves.easeOut,
+                                  ),
+                                );
+
+                            return FadeTransition(
+                              opacity: animation,
+                              child: SlideTransition(
+                                position: slideAnimation,
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: Container(
+                            key: ValueKey(menuController.activeSubTab),
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.yellow.shade50,
+                                  Colors.yellow.shade100.withOpacity(0.8),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.amber.shade100.withOpacity(0.4),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                              border: Border.all(
+                                color: Colors.amber.shade200,
+                                width: 1,
+                              ),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                color: Colors.white.withOpacity(0.92),
+                                padding: const EdgeInsets.all(10),
+                                child: menuController.getTabContent(
+                                  widget.movieId,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // 🟡 Builds the Sub Tabs (Actors / Top Investor / Profit Holder / Winner / etc.)
+  Widget _buildSubTabBar() {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          children: [
+            const SizedBox(width: 20),
+            ...menuController.getSubTabs().map((tab) {
+              final isSelected = menuController.activeSubTab == tab;
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    menuController.selectSubTab(tab);
+                  });
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 6,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? Colors.amber.shade400
+                        : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: Colors.amber.shade200,
+                              blurRadius: 6,
+                              offset: const Offset(0, 3),
+                            ),
+                          ]
+                        : [],
+                  ),
+                  child: Text(
+                    tab,
+                    style: TextStyle(
+                      color: isSelected ? Colors.black : Colors.black87,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.w500,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+            const SizedBox(width: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 🟡 Builds the Main Movie Menu Tabs (Movie / Offers / News / Transection)
+  Widget _buildMainTabBar() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.white, Colors.yellow.shade50],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12.withOpacity(0.05),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: ['Movie', 'Offers', 'News', 'Transection'].map((tab) {
+          final bool isSelected = menuController.selectedMainTab == tab;
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                menuController.selectMainTab(tab);
+              });
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                color: isSelected
+                    ? Colors.yellow.shade100.withOpacity(0.4)
+                    : Colors.transparent,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    tab,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.w500,
+                      color: isSelected
+                          ? Colors.amber.shade800
+                          : Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    height: 3,
+                    width: isSelected ? 28 : 0,
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade600,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }

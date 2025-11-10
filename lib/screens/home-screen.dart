@@ -18,6 +18,11 @@ import '../utlity/Live_News_Marquee.dart';
 import '../services/api_service.dart';
 import '../constants/api_endpoints.dart';
 import '../screens/search_screen.dart';
+import '../HomeScreen/star_connect_zone.dart.dart';
+import '../HomeScreen/investment_insights.dart';
+import '../HomeScreen/cinema_buzz.dart';
+import '../HomeScreen/producer_spotlight.dart';
+import '../helper/Lazy_Section_helper.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -114,31 +119,22 @@ class _HomeScreenState extends State<HomeScreen>
   Widget _buildHomeContent() {
     return Container(
       color: const Color(0xFFF5F5F5),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            HomeMenu(
-              onMenuSelected: (menu) {
-                debugPrint("Selected Menu: $menu");
-                // You can add filtering logic or navigation based on selected menu
-              },
-            ),
-            const SizedBox(height: 10), // spacing
-            PosterSlider(),
-            const SizedBox(height: 5),
-            RecommendedMovie(),
-            const SizedBox(height: 5),
-            LiveNewsMarquee(),
-            const SizedBox(height: 5),
-            WinnersSection(),
-            UpcomingMoviesSection(),
-            TopInvestorsSection(),
-            BoxOfficeLiveSection(),
-            TopProfitHolderSection(),
-            const SizedBox(height: 5),
-          ],
-        ),
+      child: ListView(
+        physics: const BouncingScrollPhysics(),
+        children: [
+          LazySectionLoader(builder: (_) => HomeMenu()),
+          LazySectionLoader(builder: (_) => PosterSlider()),
+          LazySectionLoader(builder: (_) => StarConnectZone()),
+          LazySectionLoader(builder: (_) => RecommendedMovie()),
+          LazySectionLoader(builder: (_) => UpcomingMoviesSection()),
+          LazySectionLoader(builder: (_) => CinemaBuzz()),
+          LazySectionLoader(builder: (_) => BoxOfficeLiveSection()),
+          LazySectionLoader(builder: (_) => TopInvestorsSection()),
+          LazySectionLoader(builder: (_) => ProducerSpotlight()),
+          LazySectionLoader(builder: (_) => WinnersSection()),
+          LazySectionLoader(builder: (_) => InvestmentInsights()),
+          LazySectionLoader(builder: (_) => TopProfitHolderSection()),
+        ],
       ),
     );
   }

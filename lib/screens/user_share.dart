@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/AppTheme.dart';
 import '../services/api_service.dart';
 import '../constants/api_endpoints.dart';
-import '../screens/movie_user_share.dart';
+import '../HomeScreen/movie_sell_share_screen.dart';
 import '../screens/movie_buy.dart';
 
 class MovieListScreen extends StatefulWidget {
@@ -515,7 +515,7 @@ class _MovieListScreenState extends State<MovieListScreen>
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => MovieUserShareViewScreen(
+                                builder: (_) => MovieSellShareScreen(
                                   movieId: movie['movieId'],
                                 ),
                               ),

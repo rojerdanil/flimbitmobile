@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import '../theme/AppTheme.dart';
 import '../services/api_service.dart';
 import '../constants/api_endpoints.dart';
+import '../screens/movie_buy.dart';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
-
+  final String? initialType;
+  const SearchScreen({super.key, this.initialType});
   @override
   State<SearchScreen> createState() => _SearchScreenState();
 }
@@ -22,7 +23,7 @@ class _SearchScreenState extends State<SearchScreen>
   bool isLoadingMore = false;
   bool hasMore = true;
   int offset = 0;
-  final int limit = 10;
+  final int limit = 6;
 
   // Filter data
   List<Map<String, dynamic>> languageList = [];
@@ -45,6 +46,11 @@ class _SearchScreenState extends State<SearchScreen>
   @override
   void initState() {
     super.initState();
+    if (widget.initialType != null && widget.initialType!.isNotEmpty) {
+      selectedTypes.clear();
+      selectedTypes.add(widget.initialType!);
+    }
+
     _fetchMovies();
     _scrollController.addListener(_onScroll);
 
@@ -522,24 +528,35 @@ class _SearchScreenState extends State<SearchScreen>
           : movies.isEmpty
           ? const Center(child: Text("No movies found"))
           : GridView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(12),
-              itemCount: movies.length + (isLoadingMore ? 1 : 0),
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 1.65,
+                crossAxisCount: 1,
+                mainAxisSpacing: 8, // tighter spacing
+                mainAxisExtent: 165, // exact card height
               ),
+              itemCount: movies.length,
               itemBuilder: (context, index) {
-                if (index == movies.length && isLoadingMore) {
-                  return const Center(child: CircularProgressIndicator());
-                }
                 final movie = movies[index];
-                return _buildMovieCard(movie);
+                return SizedBox(
+                  height: 220, // ✅ fixed height card container
+                  child: _buildMovieCard(movie),
+                );
               },
             ),
     );
+  }
+
+  String _formatAmount(num value) {
+    if (value >= 10000000) {
+      return '₹${(value / 10000000).toStringAsFixed(1)}Cr';
+    } else if (value >= 100000) {
+      return '₹${(value / 100000).toStringAsFixed(1)}L';
+    } else if (value >= 1000) {
+      return '₹${(value / 1000).toStringAsFixed(1)}K';
+    } else {
+      return '₹${value.toStringAsFixed(0)}';
+    }
   }
 
   Widget _buildMovieCard(Map<String, dynamic> movie) {
@@ -549,105 +566,313 @@ class _SearchScreenState extends State<SearchScreen>
         ? (invested / budget).clamp(0.0, 1.0)
         : 0.0;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+    String formatAmount(double amount) {
+      if (amount >= 10000000)
+        return "${(amount / 10000000).toStringAsFixed(2)} Cr";
+      if (amount >= 100000) return "${(amount / 100000).toStringAsFixed(2)} L";
+      if (amount >= 1000) return "${(amount / 1000).toStringAsFixed(1)} K";
+      return amount.toStringAsFixed(0);
+    }
+
+    // Release Date Logic
+    String releaseText = "Coming Soon";
+    int diffDays = 9999;
+    final String? releaseDateStr = movie['releaseDate'];
+    if (releaseDateStr != null && releaseDateStr.isNotEmpty) {
+      try {
+        final releaseDate = DateTime.parse(releaseDateStr);
+        final now = DateTime.now();
+        diffDays = releaseDate.difference(now).inDays;
+        if (diffDays > 0) {
+          if (diffDays <= 3)
+            releaseText = "🔥 Releases in $diffDays days";
+          else if (diffDays <= 7)
+            releaseText = "⏰ Only $diffDays days left";
+          else
+            releaseText = "📅 Releases in $diffDays days";
+        } else if (diffDays == 0)
+          releaseText = "🎉 Releasing Today!";
+        else
+          releaseText = "✅ Released ${diffDays.abs()} days ago";
+      } catch (_) {}
+    }
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MovieBuyScreen(movieId: movie['id']),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-            child: Stack(
-              children: [
-                Image.network(
-                  movie["posterUrl"] ?? "",
-                  height: 100,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    height: 100,
-                    color: Colors.grey[200],
-                    child: const Icon(
-                      Icons.broken_image,
-                      size: 30,
-                      color: Colors.grey,
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Poster + overlay
+              Stack(
+                children: [
+                  Image.network(
+                    movie["posterUrl"] ?? "",
+                    width: 100,
+                    height: 155,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 100,
+                      height: 155,
+                      color: Colors.grey[200],
+                      child: const Icon(
+                        Icons.movie_creation_outlined,
+                        color: Colors.grey,
+                        size: 36,
+                      ),
                     ),
                   ),
-                ),
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    color: Colors.white.withOpacity(0.9),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Progress: ${(progress * 100).toStringAsFixed(0)}%",
-                          style: const TextStyle(
+                  Container(
+                    width: 100,
+                    height: 155,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.45),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                  ),
+                  // Circular progress badge
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: SizedBox(
+                      width: 34,
+                      height: 34,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          CircularProgressIndicator(
+                            value: progress,
+                            strokeWidth: 3.5,
+                            backgroundColor: Colors.white24,
+                            color: AppTheme.primaryColor,
+                          ),
+                          Text(
+                            "${(progress * 100).toStringAsFixed(0)}%",
+                            style: const TextStyle(
+                              fontSize: 9,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (diffDays <= 7)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          "HOT",
+                          style: TextStyle(
+                            color: Colors.white,
                             fontSize: 10,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        LinearProgressIndicator(
-                          value: progress,
-                          backgroundColor: Colors.grey.shade300,
-                          color: AppTheme.primaryColor,
-                          minHeight: 6,
-                        ),
-                      ],
+                      ),
                     ),
+                ],
+              ),
+
+              // Details
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        movie["title"] ?? "Untitled Movie",
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "${movie["movieTypeName"] ?? ''} • ${movie["language"] ?? ''}",
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: Colors.black54,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        movie['status'] ?? '',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color:
+                              (movie['status']?.toString().toLowerCase() ==
+                                  'active')
+                              ? Colors.green
+                              : Colors.blueGrey,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+
+                      // Invested & Budget
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.trending_up,
+                                size: 14,
+                                color: Colors.green,
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                "₹${formatAmount(invested)}",
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.account_balance_wallet,
+                                size: 14,
+                                color: Colors.redAccent,
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                "₹${formatAmount(budget)}",
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 6),
+
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 5,
+                          backgroundColor: Colors.grey.shade200,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppTheme.primaryColor,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 6),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: (diffDays <= 7)
+                                    ? AppTheme.primaryColor.withOpacity(0.12)
+                                    : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(color: Colors.grey.shade200),
+                              ),
+                              child: Text(
+                                releaseText,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      MovieBuyScreen(movieId: movie['id']),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: const Text(
+                                "Invest Now",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  movie["title"] ?? "Untitled",
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  "₹${movie["perShareAmount"] ?? 0}",
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.orange.shade800,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  movie["movieTypeName"] ?? "",
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: Colors.black54),
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

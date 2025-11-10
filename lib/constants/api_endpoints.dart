@@ -14,10 +14,10 @@ class ApiEndpoints {
 
   static const String userMoiveRemainder =
       "$baseUrl/announcements/mobile/findMoive-remainder";
-  static const String markAllUserNotificationsRead = "";
-  static const String markAllAnnouncementsRead = "";
-  static const String markUserNotificationRead = "";
-  static const String markAnnouncementRead = "";
+  static const String markUserNotificationRead =
+      "$baseUrl/announcements/mobile/user_specific/mark-read";
+  static const String markAnnouncementRead =
+      "$baseUrl/announcements/mobile/annoncement_specific/mark-read";
 
   static const String posterRead = "$baseUrl/announcements/mobile/find-poster";
 
@@ -90,4 +90,49 @@ class ApiEndpoints {
 
   static const String movieSummaryCounts =
       "$baseUrl/movie/mobile/movie-summary";
+
+  static const String movieStarConnectOffer =
+      "$baseUrl/movie-bigoffers/mobile/read-star-offer";
+  static const String movieStarConnectOfferTypes =
+      "$baseUrl/star-connector-offers/all_offer";
+
+  static const String cinemaBuzzMovies =
+      "$baseUrl/transactions/mobile/cinema-buzz";
+
+  static const String usertopInvestedMovies =
+      "$baseUrl/movieInvest/mobile/user-top-invested-movie";
+
+  static const String userlatestProfitMovies =
+      "$baseUrl/user-winners/mobile/user-top-profited-movie";
+
+  static const String investmentGrowthChart =
+      "$baseUrl/dashboard/mobile/overall_investement_chat";
+
+  static const String topLiveInvestingMovies =
+      "$baseUrl/movieInvest/mobile/top-invested-movie-live";
+
+  static const String topProdcutionCompany =
+      "$baseUrl/production-company/mobile/top_production_company";
+
+  static const String readtopProdcutionCompanyMovies =
+      "$baseUrl/production-company/mobile/read_movies";
+
+  static const String userInvestedMovieSummary =
+      "$baseUrl/userShare/mobile/user_invested_movie_summary/";
+  static const String userInvestedMovieShare =
+      "$baseUrl/userShare/mobile/user_movie_share/";
+  static const String movieShareCalculateOfferSummary =
+      "$baseUrl/userShare/mobile/movie_offer_summary/";
+
+  static const String movieShareSoldCountummary =
+      "$baseUrl/transactions/mobile/user-share-sold-history-summary/";
+
+  static const String verifySellSharesSummary =
+      "$baseUrl/sell-share/mobile/verify-sell-share";
+
+  static const String startShellShare =
+      "$baseUrl/sell-share/mobile/start-sell-share";
+  static const String userBankAccountsDetails =
+      "$baseUrl/sell-share/mobile/user-gateway-service";
+  static const String verifyPin = "$baseUrl/security/mobile/verify-pin";
 }

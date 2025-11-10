@@ -1,4 +1,7 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:shimmer/shimmer.dart';
+import '../theme/AppTheme.dart';
 import '../services/api_service.dart';
 import '../constants/api_endpoints.dart';
 
@@ -90,25 +93,59 @@ class _TopProfitHoldersSectionState extends State<TopProfitHoldersSection> {
       return const Center(child: Text("No profit holders yet"));
     }
 
-    final itemsPerPage = 3; // 3 cards per page
+    final itemsPerPage = 3;
     final pageCount = (holders.length / itemsPerPage).ceil();
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      color: Colors.white,
+      color: Colors.grey.shade100, // 🔹 gray background
+      padding: const EdgeInsets.symmetric(vertical: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12),
-            child: Text(
-              "Top Profit Holders",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          // Header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Stack(
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 4.0),
+                      child: Text(
+                        "💰 Top Profit Holders",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 120,
+                      child: Container(height: 3, color: AppTheme.primaryColor),
+                    ),
+                  ],
+                ),
+                TextButton(
+                  onPressed: () {},
+                  child: const Text(
+                    "View All",
+                    style: TextStyle(
+                      color: Colors.amber,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 10),
+
+          // Cards
           SizedBox(
-            height: 220,
+            height: 240,
             child: PageView.builder(
               controller: _pageController,
               itemCount: pageCount,
@@ -132,7 +169,7 @@ class _TopProfitHoldersSectionState extends State<TopProfitHoldersSection> {
                         ),
                         child: ProfitHolderCard(
                           holder: pageHolders[index],
-                          index: start + index,
+                          rank: start + index + 1,
                         ),
                       ),
                     ),
@@ -141,6 +178,8 @@ class _TopProfitHoldersSectionState extends State<TopProfitHoldersSection> {
               },
             ),
           ),
+
+          // Dots
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -153,20 +192,9 @@ class _TopProfitHoldersSectionState extends State<TopProfitHoldersSection> {
                 height: currentPage == index ? 14 : 8,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: currentPage == index
-                      ? const LinearGradient(
-                          colors: [Color(0xFFFFC107), Color(0xFFFF9800)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        )
-                      : null,
-                  color: currentPage == index ? null : Colors.grey.shade300,
-                ),
-                child: AnimatedScale(
-                  scale: currentPage == index ? 1.2 : 1.0,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                  child: const SizedBox(),
+                  color: currentPage == index
+                      ? AppTheme.primaryColor
+                      : Colors.grey.shade400,
                 ),
               ),
             ),
@@ -177,155 +205,210 @@ class _TopProfitHoldersSectionState extends State<TopProfitHoldersSection> {
   }
 }
 
-class ProfitHolderCard extends StatefulWidget {
+class ProfitHolderCard extends StatelessWidget {
   final ProfitHolder holder;
-  final int index;
+  final int rank;
 
-  const ProfitHolderCard({
-    super.key,
-    required this.holder,
-    required this.index,
-  });
-
-  @override
-  State<ProfitHolderCard> createState() => _ProfitHolderCardState();
-}
-
-class _ProfitHolderCardState extends State<ProfitHolderCard>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  final List<List<Color>> gradients = [
-    [Colors.blue.shade300, Colors.purple.shade400],
-    [Colors.orange.shade400, Colors.red.shade400],
-    [Colors.green.shade300, Colors.teal.shade400],
-    [Colors.pink.shade300, Colors.purple.shade300],
-    [Colors.cyan.shade300, Colors.indigo.shade400],
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
-
-    _animation = Tween<double>(
-      begin: 0,
-      end: 8,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  const ProfitHolderCard({super.key, required this.holder, required this.rank});
 
   @override
   Widget build(BuildContext context) {
-    final gradient = gradients[widget.index % gradients.length];
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 500),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        gradient: LinearGradient(
-          colors: gradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return GestureDetector(
+      onTap: () => _openFullScreenDetail(context, holder),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black12.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        boxShadow: const [
-          BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(2, 4)),
-        ],
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircleAvatar(
-            radius: 28,
-            backgroundImage: NetworkImage(widget.holder.profilePicUrl),
-            onBackgroundImageError: (_, __) =>
-                const AssetImage('assets/poster1.jpg') as ImageProvider,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            widget.holder.name,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-              color: Colors.white,
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _buildShimmerProfile(holder.profilePicUrl),
+            const SizedBox(height: 10),
+            Text(
+              holder.name,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: Colors.black87,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 6),
-          AnimatedBuilder(
-            animation: _animation,
-            builder: (context, child) {
-              return Transform.translate(
-                offset: Offset(0, -_animation.value),
-                child: child,
-              );
-            },
-            child: Column(
-              children: [
-                AnimatedStatCard(
-                  label: "Invested",
-                  value: widget.holder.investedAmount,
-                ),
-                const SizedBox(height: 4),
-                AnimatedStatCard(
-                  label: "Profit",
-                  value: widget.holder.profitAmount,
-                ),
-                const SizedBox(height: 4),
-                AnimatedStatCard(
-                  label: "ROI",
-                  value: widget.holder.roi,
-                  isPercentage: true,
-                ),
-              ],
+            const SizedBox(height: 6),
+            _statTile("ROI", "${holder.roi.toStringAsFixed(1)}%"),
+            _statTile(
+              "Invested",
+              "₹${holder.investedAmount.toStringAsFixed(0)}",
             ),
-          ),
-        ],
+            _statTile("Profit", "₹${holder.profitAmount.toStringAsFixed(0)}"),
+          ],
+        ),
       ),
     );
   }
-}
 
-class AnimatedStatCard extends StatelessWidget {
-  final String label;
-  final double value;
-  final bool isPercentage;
+  Widget _buildShimmerProfile(String imageUrl) {
+    return ClipOval(
+      child: SizedBox(
+        height: 60,
+        width: 60,
+        child: Stack(
+          children: [
+            Shimmer.fromColors(
+              baseColor: Colors.amber.shade200,
+              highlightColor: Colors.amber.shade50,
+              child: Container(color: Colors.amber.shade100),
+            ),
+            FadeInImage.assetNetwork(
+              placeholder: '',
+              image: imageUrl,
+              fit: BoxFit.cover,
+              imageErrorBuilder: (context, error, stackTrace) => Container(
+                color: Colors.grey[200],
+                child: const Icon(Icons.person, color: Colors.grey, size: 40),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-  const AnimatedStatCard({
-    super.key,
-    required this.label,
-    required this.value,
-    this.isPercentage = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _statTile(String label, String value) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      margin: const EdgeInsets.symmetric(vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
+        color: Colors.amber.shade50,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
-        isPercentage
-            ? "$label: ${value.toStringAsFixed(2)}%"
-            : "$label: ₹${value.toStringAsFixed(0)}",
+        "$label: $value",
         style: const TextStyle(
           fontSize: 12,
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w600,
+          color: Colors.black87,
+        ),
+      ),
+    );
+  }
+
+  // 🪩 Fullscreen Detail Popup (like Star Connect)
+  void _openFullScreenDetail(BuildContext context, ProfitHolder holder) {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        opaque: false,
+        pageBuilder: (_, __, ___) {
+          return Scaffold(
+            backgroundColor: Colors.black,
+            body: Stack(
+              children: [
+                Positioned.fill(
+                  child: FadeInImage.assetNetwork(
+                    placeholder: '',
+                    image: holder.profilePicUrl,
+                    fit: BoxFit.cover,
+                    imageErrorBuilder: (context, error, stackTrace) =>
+                        Container(color: Colors.grey[900]),
+                  ),
+                ),
+                Positioned.fill(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+                    child: Container(color: Colors.black.withOpacity(0.6)),
+                  ),
+                ),
+                SafeArea(
+                  child: Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircleAvatar(
+                            radius: 50,
+                            backgroundImage: NetworkImage(holder.profilePicUrl),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            holder.name,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          _buildDetailTile(
+                            "Invested",
+                            "₹${holder.investedAmount.toStringAsFixed(0)}",
+                          ),
+                          _buildDetailTile(
+                            "Profit",
+                            "₹${holder.profitAmount.toStringAsFixed(0)}",
+                          ),
+                          _buildDetailTile(
+                            "ROI",
+                            "${holder.roi.toStringAsFixed(1)}%",
+                          ),
+                          const SizedBox(height: 30),
+                          ElevatedButton.icon(
+                            onPressed: () => Navigator.pop(context),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 30,
+                                vertical: 14,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            icon: const Icon(Icons.check_circle_outline),
+                            label: const Text(
+                              "Close",
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+        transitionsBuilder: (_, anim, __, child) =>
+            FadeTransition(opacity: anim, child: child),
+      ),
+    );
+  }
+
+  Widget _buildDetailTile(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Text(
+        "$label: $value",
+        style: const TextStyle(
+          color: Colors.amber,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

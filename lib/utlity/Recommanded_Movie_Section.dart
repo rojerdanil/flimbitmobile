@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/AppTheme.dart';
-import '../screens/movie_view.dart';
+import '../screens/movie_buy.dart';
 import '../services/api_service.dart';
 import '../constants/api_endpoints.dart';
+import '../screens/search_screen.dart';
 
 class RecommendedMovie extends StatefulWidget {
   const RecommendedMovie({super.key});
@@ -21,10 +22,8 @@ class _RecommendedMovieState extends State<RecommendedMovie> {
   int offset = 0;
   final int limit = 5;
 
-  // Map to hold current offer index for each movie
   Timer? offerTimer;
   final Map<int, int> currentOfferIndex = {};
-  final Map<int, bool> slideUp = {}; //
 
   @override
   void initState() {
@@ -32,7 +31,6 @@ class _RecommendedMovieState extends State<RecommendedMovie> {
     _fetchRecommendedMovies();
     _scrollController.addListener(_onScroll);
 
-    // Start auto-scrolling offers every 2 seconds
     offerTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       if (!mounted) return;
       setState(() {
@@ -103,14 +101,14 @@ class _RecommendedMovieState extends State<RecommendedMovie> {
   Color _getOfferColor(String offer) {
     switch (offer) {
       case 'Act in Movie':
-        return Colors.deepPurple;
+        return AppTheme.primaryColor.withOpacity(0.9);
       case 'Premium Ticket':
-        return Colors.orange;
+        return Colors.orangeAccent;
       case 'Free Ticket':
         return Colors.green;
       case 'No Profit Commission':
       case 'No Platform Commission':
-        return Colors.blueAccent;
+        return Colors.lightBlueAccent;
       default:
         return Colors.redAccent;
     }
@@ -132,7 +130,10 @@ class _RecommendedMovieState extends State<RecommendedMovie> {
   void _onMovieTap(BuildContext context, int movieId) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => MovieViewScreen(movieId: movieId)),
+      MaterialPageRoute(
+        builder: (_) =>
+            MovieBuyScreen(movieId: movieId, menu: 'Movie', submenu: 'Actors'),
+      ),
     );
   }
 
@@ -149,26 +150,50 @@ class _RecommendedMovieState extends State<RecommendedMovie> {
     }
 
     return Container(
-      color: Colors.white,
+      color: AppTheme.backgroundColor,
       padding: const EdgeInsets.symmetric(vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
+          // 🔹 Header
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  "Recommended Movies",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                Stack(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4.0),
+                      child: Text(
+                        "🎞 Recommended Movies",
+                        style: AppTheme.headline1,
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 80,
+                      child: Container(height: 3, color: AppTheme.primaryColor),
+                    ),
+                  ],
                 ),
                 TextButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const SearchScreen(initialType: "Recommended"),
+                      ),
+                    );
+                  },
                   child: Text(
                     "View All",
-                    style: TextStyle(color: AppTheme.primaryColor),
+                    style: TextStyle(
+                      color: AppTheme.primaryColor,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
@@ -176,13 +201,13 @@ class _RecommendedMovieState extends State<RecommendedMovie> {
           ),
           const SizedBox(height: 12),
 
-          // Horizontal movie cards
+          // 🔸 Movie Cards
           SizedBox(
             height: 320,
             child: ListView.builder(
               controller: _scrollController,
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: recommendedMovies.length + (isFetchingMore ? 1 : 0),
               itemBuilder: (context, index) {
                 if (index == recommendedMovies.length) {
@@ -210,8 +235,6 @@ class _RecommendedMovieState extends State<RecommendedMovie> {
                 );
 
                 final cardWidth = screenWidth * 0.45;
-
-                // Current offer index for this movie
                 final offerIndex = currentOfferIndex[index] ?? 0;
                 final currentOffer = starOffers.isNotEmpty
                     ? starOffers[offerIndex]["value"] ?? ""
@@ -222,219 +245,228 @@ class _RecommendedMovieState extends State<RecommendedMovie> {
                   margin: EdgeInsets.only(
                     right: index == recommendedMovies.length - 1 ? 0 : 16,
                   ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.shadowColor,
+                        blurRadius: 6,
+                        spreadRadius: 1,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                    border: Border.all(
+                      color: AppTheme.primaryColor.withOpacity(0.3),
+                      width: 1,
+                    ),
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.white,
+                        AppTheme.accentColor.withOpacity(0.3),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
                   child: GestureDetector(
                     onTap: () => _onMovieTap(context, movie["id"]),
-                    child: Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: Stack(
-                            children: [
-                              SizedBox(
-                                height: 200,
-                                width: cardWidth,
-                                child: Image.network(
-                                  movie["posterUrl"] ?? '',
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      Container(color: Colors.grey.shade300),
-                                ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Stack(
+                        children: [
+                          // Poster
+                          SizedBox(
+                            height: 200,
+                            width: cardWidth,
+                            child: Image.network(
+                              movie["posterUrl"] ?? '',
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) =>
+                                  Container(color: Colors.grey.shade300),
+                            ),
+                          ),
+
+                          // Offer Tag
+                          if (starOffers.isNotEmpty)
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 500),
+                                transitionBuilder: (child, animation) {
+                                  return FadeTransition(
+                                    opacity: animation,
+                                    child: child,
+                                  );
+                                },
+                                child: currentOffer.isNotEmpty
+                                    ? Container(
+                                        key: ValueKey<String>(currentOffer),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 2,
+                                          horizontal: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: _getOfferColor(currentOffer),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: AppTheme.primaryColor
+                                                  .withOpacity(0.4),
+                                              blurRadius: 6,
+                                            ),
+                                          ],
+                                        ),
+                                        child: Text(
+                                          currentOffer,
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      )
+                                    : const SizedBox.shrink(),
                               ),
-                              Positioned(
-                                bottom: 0,
-                                left: 0,
-                                right: 0,
-                                child: Container(
-                                  height: 80,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [
-                                        Colors.transparent,
-                                        Colors.black.withOpacity(0.7),
-                                      ],
-                                    ),
+                            ),
+
+                          // Countdown
+                          if (releaseCountdown != null)
+                            Positioned(
+                              top: 8,
+                              left: 8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor.withOpacity(
+                                    0.85,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  releaseCountdown,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ),
-                              // Animated offer
-                              if (starOffers.isNotEmpty)
-                                Positioned(
-                                  top: 8,
-                                  right: 8,
-                                  child: AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 500),
-                                    transitionBuilder: (child, animation) {
-                                      return FadeTransition(
-                                        opacity: animation,
-                                        child: child,
-                                      );
+                            ),
+
+                          // Bottom Info Card
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: const BorderRadius.only(
+                                  bottomLeft: Radius.circular(16),
+                                  bottomRight: Radius.circular(16),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppTheme.shadowColor,
+                                    blurRadius: 4,
+                                    offset: const Offset(0, -2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Text(
+                                        "🎬 ",
+                                        style: TextStyle(fontSize: 18),
+                                      ),
+                                      Expanded(
+                                        child: Text(
+                                          movie["title"] ?? "",
+                                          style: AppTheme.headline2,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    movie["movieTypeName"] ?? "",
+                                    style: AppTheme.subtitle,
+                                  ),
+                                  const SizedBox(height: 6),
+                                  LinearProgressIndicator(
+                                    value: progress,
+                                    minHeight: 6,
+                                    backgroundColor: Colors.grey.shade300,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "₹${movie["investedAmount"] ?? 0}",
+                                        style: AppTheme.subtitle,
+                                      ),
+                                      Text(
+                                        "₹${movie["budget"] ?? 0}",
+                                        style: AppTheme.subtitle,
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      final movieId = movie["id"];
+                                      if (movieId != null && movieId != 0) {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => MovieBuyScreen(
+                                              movieId: movieId,
+                                            ),
+                                          ),
+                                        );
+                                      }
                                     },
-                                    child: currentOffer.isNotEmpty
-                                        ? Container(
-                                            key: ValueKey<String>(currentOffer),
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 2,
-                                              horizontal: 4,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: _getOfferColor(
-                                                currentOffer,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                            ),
-                                            child: Text(
-                                              currentOffer,
-                                              style: const TextStyle(
-                                                fontSize: 10,
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          )
-                                        : const SizedBox.shrink(),
-                                  ),
-                                ),
-                              // Release countdown
-                              if (releaseCountdown != null)
-                                Positioned(
-                                  top: 8,
-                                  left: 8,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.6),
-                                      borderRadius: BorderRadius.circular(4),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.primaryColor,
+                                      foregroundColor: Colors.black,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 6,
+                                      ),
                                     ),
                                     child: Text(
-                                      releaseCountdown,
+                                      "Invest ₹${movie["perShareAmount"] ?? 0}",
                                       style: const TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.white,
+                                        fontSize: 12,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: const BorderRadius.only(
-                                bottomLeft: Radius.circular(16),
-                                bottomRight: Radius.circular(16),
+                                ],
                               ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black12,
-                                  blurRadius: 4,
-                                  offset: const Offset(0, -2),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  movie["title"] ?? "",
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  movie["movieTypeName"] ?? "",
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 6),
-                                LinearProgressIndicator(
-                                  value: progress,
-                                  minHeight: 6,
-                                  backgroundColor: Colors.grey.shade300,
-                                  color: AppTheme.primaryColor,
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      "₹${movie["investedAmount"] ?? 0}",
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                    Text(
-                                      "₹${movie["budget"] ?? 0}",
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    final movieId = movie["id"];
-                                    if (movieId != null && movieId != 0) {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) =>
-                                              MovieViewScreen(movieId: movieId),
-                                        ),
-                                      );
-                                    } else {
-                                      debugPrint(
-                                        "⚠️ Invalid movieId, skipping navigation",
-                                      );
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.primaryColor,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 6,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    "Invest ₹${movie["perShareAmount"] ?? 0}",
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 );

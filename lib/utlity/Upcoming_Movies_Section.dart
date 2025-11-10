@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../constants/api_endpoints.dart';
-import '../theme/AppTheme.dart'; // Import your AppTheme
-import '../screens/movie_view.dart';
+import '../theme/AppTheme.dart';
+import '../screens/movie_buy.dart';
+import '../screens/search_screen.dart';
 
 class UpcomingMoviesSection extends StatefulWidget {
   const UpcomingMoviesSection({super.key});
@@ -77,7 +78,7 @@ class _UpcomingMoviesSectionState extends State<UpcomingMoviesSection> {
         setState(() => hasMore = false);
       }
     } catch (e) {
-      debugPrint("Error fetching upcoming movies: $e");
+      debugPrint("⚠️ Error fetching upcoming movies: $e");
     }
   }
 
@@ -102,19 +103,22 @@ class _UpcomingMoviesSectionState extends State<UpcomingMoviesSection> {
   LinearGradient getBadgeGradient(String type) {
     switch (type) {
       case "today":
-        return const LinearGradient(
-          colors: [Colors.redAccent, Colors.deepOrange],
+        return LinearGradient(
+          colors: [Colors.redAccent, Colors.deepOrange.shade400],
         );
       case "soon":
-        return const LinearGradient(colors: [Colors.orange, Colors.amber]);
+        return LinearGradient(
+          colors: [AppTheme.primaryColor, Colors.orangeAccent],
+        );
       default:
-        return const LinearGradient(colors: [Colors.grey, Colors.blueGrey]);
+        return LinearGradient(
+          colors: [AppTheme.accentColor, Colors.grey.shade500],
+        );
     }
   }
 
   String formatBudgetIndian(num? amount) {
     if (amount == null || amount <= 0) return "₹0";
-
     if (amount >= 10000000) {
       double crores = amount / 10000000;
       return "₹${crores.toStringAsFixed(2)} Cr";
@@ -140,23 +144,50 @@ class _UpcomingMoviesSectionState extends State<UpcomingMoviesSection> {
     }
 
     return Container(
-      color: Colors.white,
+      color: AppTheme.backgroundColor,
       padding: const EdgeInsets.symmetric(vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
+          // 🔹 Header
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text("Upcoming Movies", style: AppTheme.headline1),
+                Stack(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4.0),
+                      child: Text(
+                        "🎬 Upcoming Movies",
+                        style: AppTheme.headline1,
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 80,
+                      child: Container(height: 3, color: AppTheme.primaryColor),
+                    ),
+                  ],
+                ),
                 TextButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const SearchScreen(initialType: "Upcoming"),
+                      ),
+                    );
+                  },
                   child: Text(
                     "View All",
-                    style: TextStyle(color: AppTheme.primaryColor),
+                    style: TextStyle(
+                      color: AppTheme.primaryColor,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
@@ -164,14 +195,14 @@ class _UpcomingMoviesSectionState extends State<UpcomingMoviesSection> {
           ),
           const SizedBox(height: 12),
 
-          // Horizontal movie carousel
+          // 🔸 Horizontal Movie Carousel
           SizedBox(
             height: posterHeight + 90,
             child: ListView.builder(
               controller: _scrollController,
               scrollDirection: Axis.horizontal,
               itemCount: upcomingMovies.length + (isFetchingMore ? 1 : 0),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               itemBuilder: (context, index) {
                 if (index == upcomingMovies.length) {
                   return const SizedBox(
@@ -188,76 +219,44 @@ class _UpcomingMoviesSectionState extends State<UpcomingMoviesSection> {
 
                 return GestureDetector(
                   onTap: () {
-                    // 👇 Handle the click here
                     final movieId = movie['id'];
-                    debugPrint("Clicked on movie ID: $movieId");
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => MovieViewScreen(movieId: movieId),
+                        builder: (_) => MovieBuyScreen(
+                          movieId: movieId,
+                          menu: 'Movie',
+                          submenu: 'Actors',
+                        ),
                       ),
                     );
-                    // Example: Navigate to movie detail screen
-                    // Navigator.pushNamed(context, '/movie_detail', arguments: movieId);
                   },
                   child: Container(
                     width: posterWidth,
-                    margin: const EdgeInsets.only(right: 12),
+                    margin: const EdgeInsets.only(right: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                     child: Column(
-                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: movie['posterUrl'] != null
-                                  ? Image.network(
-                                      movie['posterUrl'],
-                                      width: posterWidth,
-                                      height: posterHeight,
-                                      fit: BoxFit.cover,
-                                    )
-                                  : Container(
-                                      width: posterWidth,
-                                      height: posterHeight,
-                                      color: Colors.grey[300],
-                                      child: const Icon(Icons.movie, size: 40),
-                                    ),
-                            ),
-                            Positioned(
-                              top: 8,
-                              left: 8,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
+                        ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(14),
+                          ),
+                          child: movie['posterUrl'] != null
+                              ? Image.network(
+                                  movie['posterUrl'],
+                                  width: posterWidth,
+                                  height: posterHeight,
+                                  fit: BoxFit.cover,
+                                )
+                              : Container(
+                                  width: posterWidth,
+                                  height: posterHeight,
+                                  color: Colors.grey[300],
+                                  child: const Icon(Icons.movie, size: 40),
                                 ),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(6),
-                                  gradient: badgeGradient,
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.timer,
-                                      size: 10,
-                                      color: Colors.white,
-                                    ),
-                                    const SizedBox(width: 2),
-                                    Text(
-                                      daysInfo['text'],
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
                         ),
                         const SizedBox(height: 8),
                         Text(
@@ -270,41 +269,33 @@ class _UpcomingMoviesSectionState extends State<UpcomingMoviesSection> {
                         const SizedBox(height: 2),
                         Text(
                           movie['movieTypeName'] ?? '',
-                          style: AppTheme.headline1.copyWith(
+                          style: AppTheme.subtitle.copyWith(
                             fontSize: 12,
-                            color: Colors.grey,
+                            color: AppTheme.secondaryText,
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
+                            horizontal: 8,
+                            vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: AppTheme.primaryColor),
+                            border: Border.all(
+                              color: AppTheme.primaryColor,
+                              width: 1,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.transparent, // no background color
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.currency_rupee,
-                                size: 14,
-                                color: AppTheme.primaryColor,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                formatBudgetIndian(movie['budget']),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            formatBudgetIndian(movie['budget']),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryColor,
+                            ),
                           ),
                         ),
                       ],

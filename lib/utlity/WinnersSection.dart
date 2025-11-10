@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../constants/api_endpoints.dart';
-import '../screens/movie_view.dart';
+import '../screens/movie_buy.dart';
+import '../theme/AppTheme.dart';
 
 class WinnersSection extends StatefulWidget {
   const WinnersSection({super.key});
@@ -21,11 +22,14 @@ class _WinnersSectionState extends State<WinnersSection> {
   final int limit = 5;
   bool hasMore = true;
 
-  final List<List<Color>> gradients = const [
-    [Color(0xFFFFF9C4), Color(0xFFFFECB3)], // yellow
-    [Color(0xFFC8E6C9), Color(0xFFA5D6A7)], // green
-    [Color(0xFFBBDEFB), Color(0xFF90CAF9)], // blue
-    [Color(0xFFFFCCBC), Color(0xFFFFAB91)], // orange
+  // 🎨 Light Multicolor Gradients for Cards
+  final List<List<Color>> cardGradients = const [
+    [Color(0xFFFFFDE7), Color(0xFFFFECB3)], // soft gold
+    [Color(0xFFE3F2FD), Color(0xFFBBDEFB)], // sky blue
+    [Color(0xFFE8F5E9), Color(0xFFC8E6C9)], // mint green
+    [Color(0xFFFFEBEE), Color(0xFFFFCDD2)], // rose pink
+    [Color(0xFFF3E5F5), Color(0xFFE1BEE7)], // lavender
+    [Color(0xFFFFF3E0), Color(0xFFFFCC80)], // peach
   ];
 
   @override
@@ -102,23 +106,44 @@ class _WinnersSectionState extends State<WinnersSection> {
     }
 
     return Container(
-      color: const Color(0xFFFFFDE7),
+      color: Colors.white,
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "🎉 Congratulations to Our Winners!",
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
+          // 🏆 Header with underline
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Stack(
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    "🎉 Congratulations to Our Winners!",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 160,
+                  child: Container(
+                    height: 3,
+                    color: AppTheme.primaryColor, // Theme underline
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 12),
 
+          // 🏅 Horizontal list of winner cards
           SizedBox(
-            height: 100,
+            height: 110,
             child: ListView.separated(
               controller: _scrollController,
               scrollDirection: Axis.horizontal,
@@ -135,24 +160,23 @@ class _WinnersSectionState extends State<WinnersSection> {
                 }
 
                 final winner = winners[index];
-                final gradient = gradients[index % gradients.length];
+                final gradient =
+                    cardGradients[index %
+                        cardGradients.length]; // 🎨 Rotate colors
 
-                // 🟡 Added GestureDetector here 👇
                 return GestureDetector(
                   onTap: () {
                     final movieId = winner['movieId'];
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => MovieViewScreen(
+                        builder: (_) => MovieBuyScreen(
                           movieId: movieId,
-                          selectedMainTab: 'Movie',
-                          selectedSubTab: 'Winner',
+                          menu: 'Movie',
+                          submenu: 'Winner',
                         ),
                       ),
                     );
-                    // Example navigation:
-                    // Navigator.pushNamed(context, '/winner_detail', arguments: winnerId);
                   },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
@@ -165,9 +189,13 @@ class _WinnersSectionState extends State<WinnersSection> {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
+                      border: Border.all(
+                        color: AppTheme.primaryColor.withOpacity(0.3),
+                        width: 1.2,
+                      ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: AppTheme.primaryColor.withOpacity(0.2),
                           blurRadius: 6,
                           offset: const Offset(2, 4),
                         ),
@@ -190,7 +218,7 @@ class _WinnersSectionState extends State<WinnersSection> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              // 🏆 Offer name
+                              // 🏆 Offer title with shimmer gold gradient
                               Row(
                                 children: [
                                   const Text(
@@ -200,10 +228,12 @@ class _WinnersSectionState extends State<WinnersSection> {
                                   Flexible(
                                     child: ShaderMask(
                                       shaderCallback: (bounds) =>
-                                          const LinearGradient(
+                                          LinearGradient(
                                             colors: [
-                                              Color(0xFFFFD700),
-                                              Color(0xFFFFE57F),
+                                              AppTheme.primaryColor,
+                                              AppTheme.primaryColor.withOpacity(
+                                                0.6,
+                                              ),
                                             ],
                                             begin: Alignment.topLeft,
                                             end: Alignment.bottomRight,

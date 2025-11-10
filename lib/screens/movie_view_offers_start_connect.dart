@@ -147,9 +147,15 @@ class _StartOfferScreenState extends State<StartOfferScreen>
         else if (offerDetails != null)
           _buildAnimatedOfferCard(offerDetails!)
         else
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text("No offer details available."),
+          Center(
+            child: Text(
+              'No offers  available.',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[700],
+              ),
+            ),
           ),
       ],
     );

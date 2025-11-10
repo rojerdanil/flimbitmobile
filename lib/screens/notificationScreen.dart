@@ -52,7 +52,7 @@ class _NotificationScreenState extends State<NotificationScreen>
             'title': e['title'] ?? '',
             'description': e['message'] ?? '',
             'time': DateTime.parse(e['timestamp']),
-            'isNew': e['new'] ?? false,
+            'isNew': e['read_at'] == null, // ✅ unread if no timestamp
           };
         }).toList();
       }
@@ -128,7 +128,12 @@ class _NotificationScreenState extends State<NotificationScreen>
       final apiEndpoint = isUser
           ? ApiEndpoints.markUserNotificationRead
           : ApiEndpoints.markAnnouncementRead;
-      await ApiService.post(apiEndpoint, body: {"id": notification['id']});
+      await ApiService.post(
+        apiEndpoint,
+        body: {
+          "notificationIds": [notification['id']],
+        },
+      );
       setState(() {
         notification['isNew'] = false;
       });
@@ -139,18 +144,43 @@ class _NotificationScreenState extends State<NotificationScreen>
 
   Future<void> _markAllRead() async {
     try {
-      await ApiService.post(
-        ApiEndpoints.markAllUserNotificationsRead,
-        body: {},
-      );
-      await ApiService.post(ApiEndpoints.markAllAnnouncementsRead, body: {});
+      // Determine which tab is active
+      final bool isUserTab = _tabController.index == 0;
 
+      // Collect all unread IDs from the active tab
+      final ids = (isUserTab ? userNotifications : announcementNotifications)
+          .map((n) => n['id'])
+          .toList();
+
+      // Skip API call if there are no unread notifications
+      if (ids.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('All notifications already read')),
+        );
+        return;
+      }
+
+      // Choose API endpoint based on active tab
+      final apiEndpoint = isUserTab
+          ? ApiEndpoints.markUserNotificationRead
+          : ApiEndpoints.markAnnouncementRead;
+
+      // Call API to mark all as read
+      await ApiService.post(apiEndpoint, body: {"notificationIds": ids});
+
+      // Update local state instantly
       setState(() {
-        for (var n in userNotifications) n['isNew'] = false;
-        for (var n in announcementNotifications) n['isNew'] = false;
+        if (isUserTab) {
+          for (var n in userNotifications) n['isNew'] = false;
+        } else {
+          for (var n in announcementNotifications) n['isNew'] = false;
+        }
       });
     } catch (e) {
       debugPrint("Error marking all read: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to mark all as read')),
+      );
     }
   }
 
@@ -178,12 +208,11 @@ class _NotificationScreenState extends State<NotificationScreen>
           ],
           bottom: TabBar(
             controller: _tabController,
-            indicator: BoxDecoration(
-              color: AppTheme.primaryColor,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.black54,
+            indicatorColor:
+                Colors.white, // underline indicator instead of background
+            labelColor: Colors.white, // active tab text color
+            unselectedLabelColor: Colors.black54, // inactive tab text color
+            indicatorWeight: 3, // underline thickness
             tabs: const [
               Tab(icon: Icon(Icons.person), text: 'User Specific'),
               Tab(icon: Icon(Icons.campaign), text: 'Announcements'),

@@ -3,23 +3,11 @@ import 'package:flutter/material.dart';
 import '../theme/AppTheme.dart';
 import '../services/api_service.dart';
 import '../constants/api_endpoints.dart';
-
-// Import your other widget files
+import '../screens/movie_menu_controller.dart';
 import '../screens/movie_buy.dart';
-import '../screens/movie_view_top_invester.dart';
-import '../screens/movie_view_top_proftit_holder.dart';
-import '../screens/movie_view_offers_start_connect.dart';
-import '../screens/movie_view_flimBit_offer.dart';
-import '../screens/movie_view_cinema_news.dart';
-import '../screens/movie_view_cinema_collection.dart';
-import '../screens/movie_view_transection.dart';
-import '../screens/movie_view_winners.dart';
-import '../screens/actors.dart';
 
 class MovieViewScreen extends StatefulWidget {
   final int movieId;
-
-  /// 🔹 Optional: auto-select main & sub tab on open
   final String? selectedMainTab;
   final String? selectedSubTab;
 
@@ -36,38 +24,27 @@ class MovieViewScreen extends StatefulWidget {
 
 class _MovieViewScreenState extends State<MovieViewScreen>
     with TickerProviderStateMixin {
-  late String selectedMainTab;
-  late String selectedSubTab;
-  String selectedOfferSubTab = 'Star Connect';
-  String selectedNewsSubTab = 'Cinema';
+  final MovieMenuController menuController = MovieMenuController();
 
-  final PageController _offerController = PageController();
-  Timer? _offerTimer;
   bool isLoading = true;
   Map<String, dynamic>? movie;
+  int numberOfUsers = 0;
+  double investedAmount = 0;
 
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
-  // 🔸 For badges
-  final int numberOfUsers = 12800;
-  final int investedAmount = 25600000;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
     super.initState();
-
-    // 🔹 Initialize with passed-in or default tabs
-    selectedMainTab = widget.selectedMainTab ?? 'Movie';
-    selectedSubTab = widget.selectedSubTab ?? 'Actors';
-
     fetchMovieDetails();
 
     _fadeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 500),
     );
     _fadeAnimation = CurvedAnimation(
       parent: _fadeController,
@@ -76,27 +53,12 @@ class _MovieViewScreenState extends State<MovieViewScreen>
 
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 1),
+      duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
-
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-
-    _offerTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      if (_offerController.hasClients &&
-          movie != null &&
-          (movie!['offers'] ?? []).isNotEmpty) {
-        final offers = movie!['offers'] as List;
-        final nextPage =
-            ((_offerController.page?.round() ?? 0) + 1) % offers.length;
-        _offerController.animateToPage(
-          nextPage,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-        );
-      }
-    });
+    _pulseAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.05,
+    ).animate(_pulseController);
   }
 
   Future<void> fetchMovieDetails() async {
@@ -113,11 +75,8 @@ class _MovieViewScreenState extends State<MovieViewScreen>
         setState(() {
           movie = response;
           movie!['offers'] = offersResponse ?? [];
-          movie!['news'] = [
-            "Trailer released today!",
-            "Movie shooting completed!",
-          ];
         });
+        await fetchInvestmentSummary();
       }
     } catch (e) {
       debugPrint("Error fetching movie details: $e");
@@ -126,26 +85,36 @@ class _MovieViewScreenState extends State<MovieViewScreen>
     _fadeController.forward(from: 0);
   }
 
+  Future<void> fetchInvestmentSummary() async {
+    try {
+      final response = await ApiService.get(
+        "${ApiEndpoints.movieInvestCountSummary}${widget.movieId}",
+      );
+      if (response != null) {
+        final countData = response['countData'];
+        setState(() {
+          numberOfUsers = countData?['userCount'] ?? 0;
+          investedAmount =
+              (countData?['totalInvested'] as num?)?.toDouble() ?? 0.0;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching invest summary: $e");
+    }
+  }
+
+  String formatIndianNumber(num value) {
+    if (value >= 10000000) return "${(value / 10000000).toStringAsFixed(2)} Cr";
+    if (value >= 100000) return "${(value / 100000).toStringAsFixed(2)} L";
+    if (value >= 1000) return "${(value / 1000).toStringAsFixed(1)}k";
+    return value.toString();
+  }
+
   @override
   void dispose() {
-    _offerTimer?.cancel();
-    _offerController.dispose();
     _fadeController.dispose();
     _pulseController.dispose();
     super.dispose();
-  }
-
-  // 🔸 Format numbers
-  String formatIndianNumber(int value) {
-    if (value >= 10000000) {
-      return "${(value / 10000000).toStringAsFixed(2)} Cr";
-    } else if (value >= 100000) {
-      return "${(value / 100000).toStringAsFixed(2)} L";
-    } else if (value >= 1000) {
-      return "${(value / 1000).toStringAsFixed(1)}k";
-    } else {
-      return value.toString();
-    }
   }
 
   @override
@@ -162,23 +131,16 @@ class _MovieViewScreenState extends State<MovieViewScreen>
       );
     }
 
-    final invested = (movie!['investedAmount'] as num).toDouble();
-    final budget = (movie!['budget'] as num).toDouble();
+    final invested = (movie!['investedAmount'] as num?)?.toDouble() ?? 0.0;
+    final budget = (movie!['budget'] as num?)?.toDouble() ?? 1;
     final progress = (invested / budget).clamp(0.0, 1.0);
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        elevation: 1,
         title: Text(movie!['title'] ?? 'Movie', style: AppTheme.headline1),
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.black,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: _buildBadgeRow(compact: true),
-          ),
-        ],
       ),
       body: Stack(
         children: [
@@ -189,203 +151,102 @@ class _MovieViewScreenState extends State<MovieViewScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 8),
-                  _buildPosterSection(progress, invested, budget),
-                  const SizedBox(height: 10),
-                  _buildInfoSection(),
-                  const SizedBox(height: 16),
-                  _buildMainTabs(),
+                  _buildPosterSection(),
                   const SizedBox(height: 12),
+                  _buildBadgesSection(progress),
+                  const SizedBox(height: 8),
+                  _buildMainTabs(),
                   AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 400),
-                    child: _buildDynamicSubTabs(),
+                    duration: const Duration(milliseconds: 300),
+                    child: menuController.buildSubTabBar(() => setState(() {})),
                   ),
                   const SizedBox(height: 16),
-                  _buildTabContentContainer(),
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 6,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: menuController.getTabContent(widget.movieId),
+                  ),
                 ],
               ),
             ),
           ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 6,
-                    offset: Offset(0, -2),
-                  ),
-                ],
-              ),
-              child: SizedBox(
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => MovieBuyScreen(movieId: widget.movieId),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    elevation: 4,
-                  ),
-                  child: const Text(
-                    'Buy Now',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
+          _buyButton(),
         ],
       ),
     );
   }
 
-  // ✅ Rest of your original design untouched
-  // (all functions below remain exactly the same)
+  // ---------------- Poster Section ----------------
+  Widget _buildPosterSection() {
+    final bannerUrl =
+        movie?['bannerUrl'] ?? movie?['banner'] ?? movie?['posterUrl'] ?? '';
+    final posterUrl =
+        movie?['posterUrl'] ?? movie?['poster'] ?? movie?['bannerUrl'] ?? '';
 
-  Widget _buildBadgeRow({bool compact = false}) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      _buildBadge(
-        Icons.people,
-        numberOfUsers,
-        Colors.amber.shade700,
-        compact: compact,
-      ),
-      const SizedBox(width: 8),
-      _buildBadge(
-        Icons.monetization_on,
-        investedAmount,
-        Colors.green.shade600,
-        compact: compact,
-      ),
-    ],
-  );
-
-  Widget _buildBadge(
-    IconData icon,
-    int value,
-    Color color, {
-    bool compact = false,
-  }) {
-    return ScaleTransition(
-      scale: _pulseAnimation,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 800),
-        padding: EdgeInsets.symmetric(
-          horizontal: compact ? 8 : 10,
-          vertical: compact ? 3 : 4,
-        ),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.6),
-              blurRadius: 8,
-              spreadRadius: 2,
+    return Stack(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          height: 240,
+          child: Image.network(
+            bannerUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(
+              color: Colors.grey[300],
+              alignment: Alignment.center,
+              child: const Icon(Icons.movie, size: 60, color: Colors.grey),
             ),
-          ],
+          ),
         ),
-        child: Row(
-          children: [
-            Icon(icon, size: 14, color: Colors.white),
-            const SizedBox(width: 4),
-            TweenAnimationBuilder<int>(
-              tween: IntTween(begin: 0, end: value),
-              duration: const Duration(seconds: 2),
-              builder: (context, val, child) => Text(
-                formatIndianNumber(val),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+        Positioned(
+          left: 16,
+          bottom: 16,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.network(
+                  posterUrl,
+                  width: 100,
+                  height: 140,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 100,
+                    height: 140,
+                    color: Colors.grey[300],
+                    child: const Icon(Icons.image_not_supported),
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPosterSection(double progress, double invested, double budget) =>
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Image.network(
-                movie!['posterUrl'] ?? "",
-                height: 230,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
-              Icon(
-                Icons.play_circle_fill,
-                color: Colors.white.withOpacity(0.9),
-                size: 70,
-              ),
-              Positioned(
-                bottom: 16,
-                left: 16,
-                right: 16,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.55),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          minHeight: 8,
-                          color: AppTheme.primaryColor,
-                          backgroundColor: Colors.white30,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Raised: ₹${invested.toStringAsFixed(0)}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                            ),
-                          ),
-                          Text(
-                            'Goal: ₹${budget.toStringAsFixed(0)}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 220,
+                child: Text(
+                  movie?['title'] ?? '',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black54,
+                        blurRadius: 6,
+                        offset: Offset(1, 2),
                       ),
                     ],
                   ),
@@ -394,49 +255,92 @@ class _MovieViewScreenState extends State<MovieViewScreen>
             ],
           ),
         ),
-      );
+      ],
+    );
+  }
 
-  Widget _buildInfoSection() => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
-    child: Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
-        ],
-      ),
-      padding: const EdgeInsets.all(16),
+  // ---------------- Badges Section ----------------
+  Widget _buildBadgesSection(double progress) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Release: ${movie!['releaseDate'] ?? 'Coming Soon'}   '
-            'Trailer: ${movie!['trailerDate'] ?? 'Coming Soon'}',
-            style: AppTheme.headline2,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Genre: ${movie!['movieTypeName']} • ${movie!['language']}',
-            style: const TextStyle(color: Colors.black54),
+          ScaleTransition(
+            scale: _pulseAnimation,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _badge(
+                  Icons.people,
+                  'Users',
+                  formatIndianNumber(numberOfUsers),
+                ),
+                _badge(
+                  Icons.currency_rupee,
+                  'Invested',
+                  "₹${formatIndianNumber(investedAmount)}",
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
-          Text(
-            movie!['description'] ?? "",
-            style: const TextStyle(
-              color: Colors.black87,
-              height: 1.5,
-              fontSize: 14,
+          LinearProgressIndicator(
+            value: progress,
+            backgroundColor: Colors.grey.shade300,
+            color: AppTheme.primaryColor,
+            minHeight: 6,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              "${(progress * 100).toStringAsFixed(1)}% funded",
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
             ),
           ),
         ],
       ),
-    ),
-  );
+    );
+  }
 
-  // ✅ All remaining code unchanged (mainTabs, subTabs, getTabContent, etc.)
-  // Tabs (rest of your code remains unchanged below)
+  Widget _badge(IconData icon, String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade100,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.amber.shade200.withOpacity(0.4),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.orange.shade700),
+          const SizedBox(width: 6),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(label, style: const TextStyle(fontSize: 12)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------- Tabs Section ----------------
   Widget _buildMainTabs() {
     final tabs = ['Movie', 'Offers', 'News', 'Transection'];
     return SingleChildScrollView(
@@ -444,14 +348,10 @@ class _MovieViewScreenState extends State<MovieViewScreen>
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: tabs.map((tab) {
-          final isSelected = selectedMainTab == tab;
+          final isSelected = menuController.selectedMainTab == tab;
           return GestureDetector(
             onTap: () {
-              setState(() {
-                selectedMainTab = tab;
-                selectedSubTab = 'Actors';
-                _fadeController.forward(from: 0);
-              });
+              setState(() => menuController.selectMainTab(tab));
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 300),
@@ -481,136 +381,39 @@ class _MovieViewScreenState extends State<MovieViewScreen>
     );
   }
 
-  Widget _buildDynamicSubTabs() {
-    if (selectedMainTab == 'Movie') {
-      return _buildSubTabBar(
-        ['Actors', 'Top Investor', 'Profit Holder', 'Winner'],
-        selectedSubTab,
-        (tab) => setState(() => selectedSubTab = tab),
-      );
-    } else if (selectedMainTab == 'Offers') {
-      return _buildSubTabBar(
-        ['Star Connect', 'FlimBit'],
-        selectedOfferSubTab,
-        (tab) => setState(() => selectedOfferSubTab = tab),
-      );
-    } else if (selectedMainTab == 'News') {
-      // Directly handle sub-tab selection
-      return _buildSubTabBar(
-        ['Cinema', 'Collection Report'],
-        selectedSubTab, // Use selectedSubTab directly here
-        (tab) => setState(() => selectedSubTab = tab), // Update selectedSubTab
-      );
-    }
-    return const SizedBox();
-  }
-
-  Widget _buildSubTabBar(
-    List<String> tabs,
-    String selected,
-    Function(String) onTap,
-  ) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics: const BouncingScrollPhysics(),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const SizedBox(width: 40),
-          ...tabs.map((tab) {
-            final isSelected = selected == tab;
-            return GestureDetector(
-              onTap: () => onTap(tab), // Update the selected tab
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: isSelected ? AppTheme.primaryColor : Colors.grey[200],
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: AppTheme.primaryColor.withOpacity(0.4),
-                            blurRadius: 6,
-                            offset: const Offset(0, 3),
-                          ),
-                        ]
-                      : [],
-                ),
-                child: Text(
-                  tab,
-                  style: TextStyle(
-                    color: isSelected ? Colors.black : Colors.black87,
-                    fontWeight: isSelected
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                    fontSize: 14,
-                  ),
-                ),
+  // ---------------- Buy Button ----------------
+  Widget _buyButton() => Positioned(
+    bottom: 0,
+    left: 0,
+    right: 0,
+    child: Container(
+      padding: const EdgeInsets.all(12),
+      color: Colors.white,
+      child: SizedBox(
+        height: 50,
+        child: ElevatedButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => MovieBuyScreen(movieId: widget.movieId),
               ),
             );
-          }).toList(),
-          const SizedBox(width: 40), // Right padding for symmetry
-        ],
-      ),
-    );
-  }
-
-  // 🧩 Tab Content
-  Widget _buildTabContentContainer() {
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: Container(
-        width: double.infinity,
-        margin: const EdgeInsets.symmetric(horizontal: 16),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black12,
-              blurRadius: 6,
-              offset: Offset(0, 3),
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primaryColor,
+            foregroundColor: Colors.black,
+          ),
+          child: const Text(
+            'Buy Now',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1,
             ),
-          ],
+          ),
         ),
-        child: getTabContent(),
       ),
-    );
-  }
-
-  Widget getTabContent() {
-    switch (selectedMainTab) {
-      case 'Offers':
-        return selectedOfferSubTab == 'Star Connect'
-            ? StartOfferScreen(movieId: widget.movieId)
-            : FilmBitOfferScreen(movieId: widget.movieId);
-      case 'Transection':
-        return TransactionReportScreen(movieId: widget.movieId);
-      case 'News':
-        // Don't overwrite selectedNewsSubTab here, use selectedSubTab directly
-        return selectedSubTab == 'Cinema'
-            ? CinemaNewsScreen(movieId: widget.movieId)
-            : CollectionReportScreen(movieId: widget.movieId);
-      case 'Movie':
-      default:
-        switch (selectedSubTab) {
-          case 'Actors':
-            return ActorsSection(movieId: widget.movieId);
-          case 'Top Investor':
-            return TopInvestorsSection(movieId: widget.movieId);
-          case 'Profit Holder':
-            return TopProfitHoldersSection(movieId: widget.movieId);
-          case 'Winner':
-            return StartOfferScreenWinner(movieId: widget.movieId);
-          default:
-            return const SizedBox();
-        }
-    }
-  }
+    ),
+  );
 }
