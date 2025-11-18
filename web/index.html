@@ -34,5 +34,25 @@
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+ function openRazorpayCheckout(options) {
+    options.handler = function(response) {
+      // This is called on successful payment
+      // response contains: razorpay_payment_id, razorpay_order_id, razorpay_signature
+      window.dispatchEvent(new CustomEvent('razorpay-success', { detail: response }));
+    };
+
+    options.modal = {
+      ondismiss: function() {
+        // Called when user dismisses the popup
+        window.dispatchEvent(new CustomEvent('razorpay-failure', { detail: { message: 'Payment dismissed' } }));
+      }
+    };
+
+    const rzp = new Razorpay(options);
+    rzp.open();
+  }
+</script>
 </body>
 </html>

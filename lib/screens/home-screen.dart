@@ -106,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen>
       case 0:
         return _buildHomeContent();
       case 1:
-        return const MovieListScreen();
+        return const UserShareScreen();
       case 2:
         return const PortfolioScreen();
       case 3:

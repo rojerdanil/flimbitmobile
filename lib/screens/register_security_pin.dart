@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/AppTheme.dart';
 import '../screens/home-screen.dart';
+import '../MainScreen/topVisualSection.dart'; // <-- import TopVisualSection
 
 class SetSecurityPinScreen extends StatefulWidget {
   const SetSecurityPinScreen({super.key});
@@ -26,8 +27,8 @@ class _SetSecurityPinScreenState extends State<SetSecurityPinScreen> {
   );
 
   bool isButtonEnabled = false;
-  bool _isPinVisible = false; // toggle for pin
-  bool _isConfirmPinVisible = false; // toggle for confirm pin
+  bool _isPinVisible = false;
+  bool _isConfirmPinVisible = false;
   String errorMessage = "";
 
   void _checkPinsFilled() {
@@ -43,28 +44,16 @@ class _SetSecurityPinScreenState extends State<SetSecurityPinScreen> {
   @override
   void initState() {
     super.initState();
-    for (var c in _pinControllers) {
-      c.addListener(_checkPinsFilled);
-    }
-    for (var c in _confirmControllers) {
-      c.addListener(_checkPinsFilled);
-    }
+    for (var c in _pinControllers) c.addListener(_checkPinsFilled);
+    for (var c in _confirmControllers) c.addListener(_checkPinsFilled);
   }
 
   @override
   void dispose() {
-    for (var c in _pinControllers) {
-      c.dispose();
-    }
-    for (var c in _confirmControllers) {
-      c.dispose();
-    }
-    for (var f in _pinFocus) {
-      f.dispose();
-    }
-    for (var f in _confirmFocus) {
-      f.dispose();
-    }
+    for (var c in _pinControllers) c.dispose();
+    for (var c in _confirmControllers) c.dispose();
+    for (var f in _pinFocus) f.dispose();
+    for (var f in _confirmFocus) f.dispose();
     super.dispose();
   }
 
@@ -80,9 +69,7 @@ class _SetSecurityPinScreenState extends State<SetSecurityPinScreen> {
       setState(() {
         errorMessage = "";
       });
-      print("Security PIN Set: $pin");
 
-      // TODO: Save PIN securely and navigate
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Security PIN set successfully")),
       );
@@ -122,12 +109,9 @@ class _SetSecurityPinScreenState extends State<SetSecurityPinScreen> {
           ),
         ),
         onChanged: (value) {
-          if (value.isNotEmpty && index < 5) {
+          if (value.isNotEmpty && index < 5)
             focusNodes[index + 1].requestFocus();
-          }
-          if (value.isEmpty && index > 0) {
-            focusNodes[index - 1].requestFocus();
-          }
+          if (value.isEmpty && index > 0) focusNodes[index - 1].requestFocus();
         },
       ),
     );
@@ -163,105 +147,100 @@ class _SetSecurityPinScreenState extends State<SetSecurityPinScreen> {
 
   @override
   Widget build(BuildContext context) {
-    double screenWidth = MediaQuery.of(context).size.width;
-    double logoSize = screenWidth * 0.3;
+    double screenHeight = MediaQuery.of(context).size.height;
+    final double h = MediaQuery.of(context).size.height;
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Logo
-              Image.asset(
-                'assets/logo.png',
-                width: logoSize,
-                height: logoSize,
-                fit: BoxFit.contain,
-              ),
-              const SizedBox(height: 20),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ------------------ TOP VISUAL SECTION ------------------
+            TopVisualSection(height: h * 0.45),
 
-              // Title
-              const Text(
-                "Set your security pin",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-
-              // Subtitle
-              const Text(
-                "This pin helps you to secure your account",
-                style: TextStyle(fontSize: 14, color: Colors.black54),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-
-              // PIN Row with toggle
-              _buildPinRow(_pinControllers, _pinFocus, _isPinVisible, () {
-                setState(() {
-                  _isPinVisible = !_isPinVisible;
-                });
-              }),
-              const SizedBox(height: 20),
-
-              // Confirm PIN Row with toggle
-              _buildPinRow(
-                _confirmControllers,
-                _confirmFocus,
-                _isConfirmPinVisible,
-                () {
-                  setState(() {
-                    _isConfirmPinVisible = !_isConfirmPinVisible;
-                  });
-                },
-              ),
-              const SizedBox(height: 20),
-
-              // Error Message
-              if (errorMessage.isNotEmpty)
-                Text(
-                  errorMessage,
-                  style: const TextStyle(color: Colors.red, fontSize: 14),
+            // ------------------ CONTENT SECTION ------------------
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24.0,
+                  vertical: 10,
                 ),
-              const SizedBox(height: 20),
-
-              // Confirm button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: isButtonEnabled ? _onConfirm : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    textStyle: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                child: Column(
+                  children: [
+                    const Text(
+                      "Set your security pin",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                  ),
-                  child: const Text("Confirm"),
+                    const SizedBox(height: 12),
+                    const Text(
+                      "This pin helps you to secure your account",
+                      style: TextStyle(fontSize: 14, color: Colors.black54),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+
+                    // PIN Row
+                    _buildPinRow(_pinControllers, _pinFocus, _isPinVisible, () {
+                      setState(() {
+                        _isPinVisible = !_isPinVisible;
+                      });
+                    }),
+                    const SizedBox(height: 20),
+
+                    // Confirm PIN Row
+                    _buildPinRow(
+                      _confirmControllers,
+                      _confirmFocus,
+                      _isConfirmPinVisible,
+                      () {
+                        setState(() {
+                          _isConfirmPinVisible = !_isConfirmPinVisible;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Error Message
+                    if (errorMessage.isNotEmpty)
+                      Text(
+                        errorMessage,
+                        style: const TextStyle(color: Colors.red, fontSize: 14),
+                      ),
+                    const SizedBox(height: 20),
+
+                    // Confirm button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: isButtonEnabled ? _onConfirm : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          textStyle: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        child: const Text("Confirm"),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Note
+                    const Text(
+                      "Do not share your pin with anyone",
+                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 20),
-
-              // Note
-              const Text(
-                "Do not share your pin with anyone",
-                style: TextStyle(fontSize: 13, color: Colors.grey),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

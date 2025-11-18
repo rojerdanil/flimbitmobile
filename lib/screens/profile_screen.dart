@@ -5,6 +5,10 @@ import 'Change_Password_Screen.dart';
 import 'setting_notification.dart';
 import 'setting_wallet.dart';
 import 'setting_user_detail_edit.dart';
+import '../screens/my_rewards_screen.dart';
+import '../screens/user_share.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../screens/PhoneVerificationScreen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -18,11 +22,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String walletBalance = "0.00";
   Map<String, dynamic>? investment;
   bool isLoading = true;
+  Map<String, dynamic>? userPanCard;
+  Map<String, String>? companyContact;
 
   @override
   void initState() {
     super.initState();
     fetchAllData();
+  }
+
+  Future<void> fetchCompanyContact() async {
+    try {
+      final response = await ApiService.get(ApiEndpoints.companyContact);
+      if (response != null) {
+        setState(() {
+          companyContact = {
+            "email": response['companyEmail'] ?? "",
+            "phone": response['companyPhoneNumber'] ?? "",
+          };
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching company contact: $e");
+    }
   }
 
   Future<void> fetchAllData() async {
@@ -31,6 +53,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       fetchUserData(),
       fetchWalletBalance(),
       fetchInvestmentSummary(),
+      fetchCompanyContact(),
     ]);
     setState(() => isLoading = false);
   }
@@ -41,6 +64,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (response != null) {
         setState(() {
           user = response['user'];
+          userPanCard = response['userPanCard']; // new
         });
       }
     } catch (e) {
@@ -142,27 +166,201 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                           const SizedBox(height: 8),
+
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 4,
-                              horizontal: 12,
-                            ),
+                            padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: (user?['panId']?.isNotEmpty == true)
-                                  ? Colors.green[100]
-                                  : Colors.red[100],
-                              borderRadius: BorderRadius.circular(20),
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade300),
                             ),
-                            child: Text(
-                              (user?['panId']?.isNotEmpty == true)
-                                  ? 'PAN Verified'
-                                  : 'PAN Not Verified',
-                              style: TextStyle(
-                                color: (user?['panId']?.isNotEmpty == true)
-                                    ? Colors.green
-                                    : Colors.red,
-                                fontWeight: FontWeight.w500,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // 💡 PAN Limit Hint (Always show)
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber[50],
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Colors.amber.shade200,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Icon(
+                                        Icons.info_outline,
+                                        color: Colors.amber,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            RichText(
+                                              text: TextSpan(
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  color: Colors.black87,
+                                                  height: 1.3,
+                                                ),
+                                                children: [
+                                                  if (userPanCard != null &&
+                                                      userPanCard?['vcVerified'] ==
+                                                          true) ...[
+                                                    const TextSpan(
+                                                      text:
+                                                          "✅ PAN Verified: You can invest up to ",
+                                                    ),
+                                                    TextSpan(
+                                                      text: "Unlimited amount",
+                                                      style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: Colors.green,
+                                                      ),
+                                                    ),
+                                                    const TextSpan(text: "."),
+                                                  ] else ...[
+                                                    const TextSpan(
+                                                      text:
+                                                          "⚠️ PAN Not Verified: Investment limited to ",
+                                                    ),
+                                                    TextSpan(
+                                                      text: "₹50,000",
+                                                      style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: Colors.red,
+                                                      ),
+                                                    ),
+                                                    const TextSpan(text: ". "),
+                                                    WidgetSpan(
+                                                      alignment:
+                                                          PlaceholderAlignment
+                                                              .middle,
+                                                      child: GestureDetector(
+                                                        onTap: () {
+                                                          Navigator.push(
+                                                            context,
+                                                            MaterialPageRoute(
+                                                              builder: (context) =>
+                                                                  const UserEditScreen(),
+                                                            ),
+                                                          );
+                                                        },
+                                                        child: const Text(
+                                                          "Click to add / verify PAN",
+                                                          style: TextStyle(
+                                                            color: Colors.blue,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            decoration:
+                                                                TextDecoration
+                                                                    .underline,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
+                                const SizedBox(height: 10),
+
+                                // 🧾 PAN Details — only if available
+                                if (userPanCard != null) ...[
+                                  Text(
+                                    "PAN ID: ${userPanCard?['panId'] ?? '-'}",
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+
+                                  Row(
+                                    children: [
+                                      // PAN Status badge
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 4,
+                                          horizontal: 10,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color:
+                                              (userPanCard?['status'] ==
+                                                  'approved')
+                                              ? Colors.green[100]
+                                              : Colors.orange[100],
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          userPanCard?['status']
+                                                  ?.toUpperCase() ??
+                                              "UNKNOWN",
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color:
+                                                (userPanCard?['status'] ==
+                                                    'approved')
+                                                ? Colors.green
+                                                : Colors.orange,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+
+                                      // VC Verified badge
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 4,
+                                          horizontal: 10,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color:
+                                              (userPanCard?['vcVerified'] ==
+                                                  true)
+                                              ? Colors.green[100]
+                                              : Colors.red[100],
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          (userPanCard?['vcVerified'] == true)
+                                              ? "VC VERIFIED"
+                                              : "VC NOT VERIFIED",
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color:
+                                                (userPanCard?['vcVerified'] ==
+                                                    true)
+                                                ? Colors.green
+                                                : Colors.red,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                         ],
@@ -217,7 +415,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: ElevatedButton(
-                                  onPressed: () {},
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const WalletScreen(
+                                              activeTab: "withdraw",
+                                            ),
+                                      ),
+                                    );
+                                  },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.amber.shade100,
                                     foregroundColor: Colors.black,
@@ -286,18 +494,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Wrap(
                           spacing: 12,
                           runSpacing: 8,
-                          children: const [
-                            _QuickLinkButton(
+                          children: [
+                            QuickLinkButton(
                               label: "My Investments",
                               icon: Icons.movie,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        UserShareScreen(showAppBar: true),
+                                  ),
+                                );
+                              },
                             ),
-                            _QuickLinkButton(
+                            QuickLinkButton(
                               label: "My Rewards",
                               icon: Icons.card_giftcard,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => MyRewardsScreen(),
+                                  ),
+                                );
+                              },
                             ),
-                            _QuickLinkButton(
+
+                            // ❌ Do NOT add const here (because of onTap)
+                            QuickLinkButton(
                               label: "Wallet Transaction",
                               icon: Icons.account_balance_wallet,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        WalletScreen(activeTab: "transactions"),
+                                  ),
+                                );
+                              },
                             ),
                           ],
                         ),
@@ -307,24 +543,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 24),
 
                     // Help Center
+                    // Help Center
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
+                      children: [
+                        const Text(
                           "Help Center",
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
                           ),
                         ),
-                        SizedBox(height: 12),
+                        const SizedBox(height: 12),
                         Text(
                           "If you need any assistance, feel free to reach us:",
                         ),
-                        SizedBox(height: 4),
-                        Text("Phone: +91 123 456 7890"),
-                        SizedBox(height: 2),
-                        Text("Email: support@filmBit.com"),
+                        const SizedBox(height: 4),
+                        Text(
+                          "Phone: ${companyContact?['phone'] ?? '+91 123 456 7890'}",
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          "Email: ${companyContact?['email'] ?? 'support@filmBit.com'}",
+                        ),
                       ],
                     ),
 
@@ -398,17 +639,51 @@ void showLogoutDialog(BuildContext context) {
           child: const Text("Cancel"),
         ),
         TextButton(
-          onPressed: () {
-            Navigator.of(context).pop();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Logged out successfully")),
-            );
+          onPressed: () async {
+            Navigator.of(context).pop(); // close dialog
+            await performLogout(context); // call backend and clear prefs
           },
           child: const Text("Logout", style: TextStyle(color: Colors.red)),
         ),
       ],
     ),
   );
+}
+
+Future<void> performLogout(BuildContext context) async {
+  try {
+    // Call logout API
+    final response = await ApiService.get(ApiEndpoints.logOut);
+
+    if (response != null) {
+      // Clear all saved preferences
+      final prefs = await SharedPreferences.getInstance();
+      prefs.remove("auth_token");
+
+      // clears all keys including auth_token, phoneNumber, deviceId, deviceType
+
+      // Show confirmation
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Logged out successfully")));
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const PhoneVerificationScreen(),
+        ),
+        (route) => false,
+      );
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Logout failed, try again")));
+    }
+  } catch (e) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text("Error during logout: $e")));
+  }
 }
 
 // Custom Card
@@ -449,23 +724,54 @@ class _SummaryRow extends StatelessWidget {
 }
 
 // Quick Link Button
-class _QuickLinkButton extends StatelessWidget {
+class QuickLinkButton extends StatelessWidget {
   final String label;
   final IconData icon;
-  const _QuickLinkButton({required this.label, required this.icon});
+  final VoidCallback? onTap;
+  final double iconSize;
+  final double spacing;
+  final TextStyle? textStyle;
+
+  const QuickLinkButton({
+    super.key,
+    required this.label,
+    required this.icon,
+    this.onTap,
+    this.iconSize = 28,
+    this.spacing = 6,
+    this.textStyle,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return ElevatedButton.icon(
-      onPressed: () {},
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.amber.shade100,
-        foregroundColor: Colors.black,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.yellow.shade700, width: 1.5),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: iconSize, color: Colors.yellow.shade800),
+            SizedBox(height: spacing),
+            Text(
+              label,
+              style:
+                  textStyle ??
+                  TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.yellow.shade800,
+                  ),
+            ),
+          ],
+        ),
       ),
-      icon: Icon(icon, size: 18),
-      label: Text(label),
     );
   }
 }

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../theme/AppTheme.dart';
+import '../services/api_service.dart';
+import '../constants/api_endpoints.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -14,16 +17,59 @@ class _NotificationScreenState extends State<NotificationScreen> {
   bool offersRewards = true;
   bool systemAlerts = true;
 
+  Future<void> fetchUserSetting() async {
+    final response = await ApiService.get(ApiEndpoints.user_setting_read);
+    if (response != null) {
+      final data = Map<String, dynamic>.from(response);
+      setState(() {
+        pushNotifications = data['pushNotifications'] ?? true;
+        transactionUpdates = data['transactionUpdates'] ?? true;
+        movieUpdates = data['movieUpdates'] ?? true;
+        offersRewards = data['offersRewards'] ?? true;
+        systemAlerts = data['systemAlerts'] ?? true;
+      });
+    }
+  }
+
+  Future<void> updateUserSetting() async {
+    final data = {
+      "pushNotifications": pushNotifications,
+      "transactionUpdates": transactionUpdates,
+      "movieUpdates": movieUpdates,
+      "offersRewards": offersRewards,
+      "systemAlerts": systemAlerts,
+    };
+
+    final response = await ApiService.post(
+      ApiEndpoints.user_setting_update,
+      body: data,
+    );
+
+    if (response != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Settings updated successfully")),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to update settings")),
+      );
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    fetchUserSetting();
+  }
+
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context).size;
     final double padding = media.width * 0.04;
-    final double fontSize = media.width * 0.042;
-    final double titleSize = media.width * 0.048;
     final double buttonHeight = media.height * 0.065;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.backgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -33,27 +79,26 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 horizontal: padding,
                 vertical: media.height * 0.02,
               ),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+              decoration: BoxDecoration(
+                color: AppTheme.backgroundColor,
+                boxShadow: [
+                  BoxShadow(color: AppTheme.shadowColor, blurRadius: 4),
+                ],
               ),
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.black87),
+                    icon: Icon(Icons.arrow_back, color: AppTheme.secondaryText),
                     onPressed: () => Navigator.pop(context),
                   ),
                   Expanded(
                     child: Text(
                       "Notifications",
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: titleSize,
-                      ),
+                      style: AppTheme.headline1,
                     ),
                   ),
-                  SizedBox(width: 48), // balance symmetry
+                  SizedBox(width: 48),
                 ],
               ),
             ),
@@ -68,11 +113,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   // GENERAL
                   Text(
                     "GENERAL",
-                    style: TextStyle(
+                    style: AppTheme.subtitle.copyWith(
                       fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                      color: Colors.black54,
-                      letterSpacing: 0.5,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -82,11 +124,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         _buildSwitchTile(
                           title: "Push Notifications",
                           icon: Icons.notifications_active,
-                          color: Colors.amber,
+                          color: AppTheme.primaryColor,
                           value: pushNotifications,
                           onChanged: (val) =>
                               setState(() => pushNotifications = val),
-                          fontSize: fontSize,
                         ),
                         _divider(),
                         _buildSwitchTile(
@@ -96,7 +137,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
                           value: systemAlerts,
                           onChanged: (val) =>
                               setState(() => systemAlerts = val),
-                          fontSize: fontSize,
                         ),
                       ],
                     ),
@@ -105,15 +145,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   const SizedBox(height: 16),
 
                   // UPDATES
-                  Text(
-                    "UPDATES",
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                      color: Colors.black54,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
                   const SizedBox(height: 8),
                   _CustomCard(
                     child: Column(
@@ -125,7 +156,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
                           value: transactionUpdates,
                           onChanged: (val) =>
                               setState(() => transactionUpdates = val),
-                          fontSize: fontSize,
                         ),
                         _divider(),
                         _buildSwitchTile(
@@ -135,7 +165,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
                           value: movieUpdates,
                           onChanged: (val) =>
                               setState(() => movieUpdates = val),
-                          fontSize: fontSize,
                         ),
                       ],
                     ),
@@ -146,11 +175,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   // PROMOTIONS
                   Text(
                     "PROMOTIONS",
-                    style: TextStyle(
+                    style: AppTheme.subtitle.copyWith(
                       fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                      color: Colors.black54,
-                      letterSpacing: 0.5,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -161,7 +187,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       color: Colors.purple,
                       value: offersRewards,
                       onChanged: (val) => setState(() => offersRewards = val),
-                      fontSize: fontSize,
                     ),
                   ),
 
@@ -173,25 +198,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     height: buttonHeight,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.amber,
-                        foregroundColor: Colors.black87,
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: AppTheme.secondaryText,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20),
                         ),
                         elevation: 4,
                       ),
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Settings updated")),
-                        );
-                      },
-                      child: Text(
-                        "Update",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: fontSize + 2,
-                        ),
-                      ),
+                      onPressed: updateUserSetting,
+                      child: Text("Update", style: AppTheme.headline2),
                     ),
                   ),
                 ],
@@ -204,7 +219,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   Widget _divider() {
-    return Divider(color: Colors.grey.shade300, height: 1);
+    return Divider(color: AppTheme.shadowColor, height: 1);
   }
 
   Widget _buildSwitchTile({
@@ -213,7 +228,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
     required Color color,
     required bool value,
     required Function(bool) onChanged,
-    required double fontSize,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
@@ -222,22 +236,32 @@ class _NotificationScreenState extends State<NotificationScreen> {
         children: [
           Row(
             children: [
-              Container(
+              // Animated icon background
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
+                  color: value
+                      ? color.withOpacity(0.3)
+                      : color.withOpacity(0.15),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, color: color, size: 24),
               ),
               const SizedBox(width: 14),
-              Text(
-                title,
-                style: TextStyle(fontSize: fontSize, color: Colors.black87),
-              ),
+              Text(title, style: AppTheme.headline2),
             ],
           ),
-          Switch(value: value, onChanged: onChanged, activeColor: color),
+          // Switch always visible
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: color,
+            activeTrackColor: color.withOpacity(0.4),
+            inactiveThumbColor: AppTheme.primaryColor,
+            inactiveTrackColor: AppTheme.primaryColor.withOpacity(0.3),
+          ),
         ],
       ),
     );

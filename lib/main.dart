@@ -1,6 +1,6 @@
-import 'package:flimbit_mobile/screens/home-screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flimbit_mobile/theme/AppTheme.dart';
+import 'package:flimbit_mobile/securityScreen/splash_screen.dart';
 
 void main() {
   runApp(const FlimBitApp());
@@ -15,7 +15,8 @@ class FlimBitApp extends StatelessWidget {
       title: 'FilmBitx',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.themeData,
-      home: HomeScreen(),
+      //  home: HomeScreen(),
+      home: SplashScreen(),
     );
   }
 }

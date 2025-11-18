@@ -32,7 +32,7 @@ class _MovieSellShareScreenState extends State<MovieSellShareScreen> {
   bool isExpanded = false; // <-- move to state of _MovieSellShareScreenState
 
   Map<String, dynamic>? selectedPayment;
-
+  late Future<Map<String, dynamic>> movieOffersFuture;
   @override
   void initState() {
     super.initState();
@@ -41,6 +41,7 @@ class _MovieSellShareScreenState extends State<MovieSellShareScreen> {
     allocatedOffersFuture = Future.value(
       null,
     ); // ✅ prevents “not initiated” error
+    movieOffersFuture = fetchMovieOffers(widget.movieId); // fetch once
   }
 
   Future<Map<String, dynamic>> fetchMovieDetails(int movieId) async {
@@ -157,7 +158,7 @@ class _MovieSellShareScreenState extends State<MovieSellShareScreen> {
                   children: [
                     buildMovieCard(movieData),
                     FutureBuilder<Map<String, dynamic>>(
-                      future: fetchMovieOffers(widget.movieId),
+                      future: movieOffersFuture,
                       builder: (context, snapshotOffers) {
                         if (snapshotOffers.connectionState ==
                             ConnectionState.waiting) {
@@ -403,7 +404,8 @@ class _MovieSellShareScreenState extends State<MovieSellShareScreen> {
                         final name =
                             result['name']; // <- get name/UPI/account number
 
-                        setState(() {
+                        print(result);
+                        setLocalState(() {
                           selectedPayment = {
                             'type': type,
                             'id': id,
@@ -411,7 +413,7 @@ class _MovieSellShareScreenState extends State<MovieSellShareScreen> {
                           };
                         });
 
-                        setLocalState(() {}); // refresh local
+                        // setLocalState(() {}); // refresh local
                       }
                     }
 
@@ -436,17 +438,37 @@ class _MovieSellShareScreenState extends State<MovieSellShareScreen> {
                             ),
                             const SizedBox(width: 6),
                             Flexible(
-                              child: Text(
-                                selectedPayment == null
-                                    ? "Select Payment"
-                                    : (selectedPayment!['type'] == "upi"
-                                          ? "UPI ID #${selectedPayment!['id']}"
-                                          : "Bank ID #${selectedPayment!['id']}"),
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.black87,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
+                              child: Flexible(
+                                child: Text(
+                                  selectedPayment == null
+                                      ? "Select Payment"
+                                      : (() {
+                                          final type = selectedPayment!['type'];
+                                          final id = selectedPayment!['id'];
+                                          final name =
+                                              selectedPayment!['name'] ?? '';
+
+                                          if (type == 'upi') {
+                                            return "UPI ID #${id ?? 'N/A'}";
+                                          } else if (type == 'bank') {
+                                            return "Bank ID #${id ?? 'N/A'}";
+                                          } else if (type == 'wallet') {
+                                            final walletAmount = id == null
+                                                ? 0
+                                                : id;
+                                            return "Wallet : ₹${CommonHelper.formatAmount(walletAmount)}";
+                                          } else {
+                                            return name.isNotEmpty
+                                                ? name
+                                                : "Unknown Payment";
+                                          }
+                                        })(),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.black87,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                  ),
                                 ),
                               ),
                             ),

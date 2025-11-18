@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../constants/api_endpoints.dart';
+import '../Readysection/wallet_payment_summary_dialog.dart';
+import '../Readysection/SelectPaymentGatewayScreen.dart';
+import '../securityScreen/pin_verification_dialog.dart';
 
 class WalletScreen extends StatefulWidget {
-  const WalletScreen({super.key});
+  final String? activeTab;
+  const WalletScreen({super.key, this.activeTab});
 
   @override
   State<WalletScreen> createState() => _WalletScreenState();
@@ -12,7 +16,10 @@ class WalletScreen extends StatefulWidget {
 class _WalletScreenState extends State<WalletScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  double walletBalance = 3200;
+  double walletBalance = 0;
+
+  List<Map<String, dynamic>> gatewayFees = [];
+  bool isLoadingFees = false;
 
   final TextEditingController _addMoneyController = TextEditingController();
   final TextEditingController _withdrawController = TextEditingController();
@@ -29,16 +36,45 @@ class _WalletScreenState extends State<WalletScreen>
   int offset = 0;
   final int limit = 10;
   late ScrollController _txScrollController;
+  int? selectedQuickAdd;
+  Map<String, dynamic>? selectedPaymentWithdrawObj;
 
   @override
   void initState() {
     super.initState();
+
     _tabController = TabController(length: 3, vsync: this);
+
+    // 🔥 Set active tab based on parameter
+    if (widget.activeTab != null) {
+      switch (widget.activeTab!.toLowerCase()) {
+        case "add":
+        case "addmoney":
+          _tabController.index = 0;
+          break;
+        case "withdraw":
+        case "withdrawmoney":
+          _tabController.index = 1;
+          break;
+        case "transactions":
+        case "transection":
+          _tabController.index = 2;
+          break;
+      }
+    }
+
+    fetchWalletBalance();
+    fetchGatewayFees();
+    if (widget.activeTab != null &&
+        widget.activeTab!.toLowerCase() == "transactions") {
+      fetchTransactions(reset: true);
+    }
     _tabController.addListener(() {
-      if (_tabController.index == 2 && transactions.isEmpty) {
+      if (_tabController.index == 2) {
         fetchTransactions(reset: true);
       }
     });
+
     _txScrollController = ScrollController();
     _txScrollController.addListener(() {
       if (_txScrollController.position.pixels >=
@@ -57,6 +93,52 @@ class _WalletScreenState extends State<WalletScreen>
     _addMoneyController.dispose();
     _withdrawController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_tabController.index == 2) {
+      fetchTransactions(reset: true);
+    }
+  }
+
+  Future<void> fetchWalletBalance() async {
+    try {
+      final response = await ApiService.get(ApiEndpoints.userWalletBalance);
+      if (response != null) {
+        setState(() {
+          walletBalance = double.tryParse(response['value'].toString()) ?? 0.0;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching wallet balance: $e");
+    }
+  }
+
+  Future<void> fetchGatewayFees() async {
+    setState(() => isLoadingFees = true);
+
+    try {
+      final response = await ApiService.get(ApiEndpoints.gatewayFees);
+      if (response != null) {
+        final List<dynamic> result = response;
+        // Remove GST from list; we will handle separately if needed
+        gatewayFees = result
+            .where((e) => e['method'] != 'GST')
+            .map(
+              (e) => {
+                'method': e['method'],
+                'feePercentage': e['feePercentage'].toDouble(),
+              },
+            )
+            .toList();
+      }
+    } catch (e) {
+      debugPrint("Error fetching gateway fees: $e");
+    }
+
+    setState(() => isLoadingFees = false);
   }
 
   Future<void> fetchTransactions({bool reset = false}) async {
@@ -259,45 +341,143 @@ class _WalletScreenState extends State<WalletScreen>
     );
   }
 
-  void addMoney() {
-    final amount = double.tryParse(_addMoneyController.text);
-    if (amount != null && amount > 0) {
-      setState(() {
-        walletBalance += amount;
-        transactions.insert(0, {
-          "date": DateTime.now().toString().split(' ')[0],
-          "type": "Add Money",
-          "amount": "₹${amount.toInt()}",
-          "status": "Done",
-        });
-        _addMoneyController.clear();
-      });
+  void addMoney() async {
+    final amountText = _addMoneyController.text.trim();
+    if (amountText.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Please enter amount")));
+      return;
+    }
+
+    final amount = double.tryParse(amountText) ?? 0;
+    if (amount < 10) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Minimum amount is ₹10")));
+      return;
+    }
+
+    if (selectedPaymentAdd == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Amount added successfully")),
+        const SnackBar(content: Text("Please select a payment method")),
+      );
+      return;
+    }
+
+    // ✅ Open Summary Dialog and wait for result
+    final paymentSuccess = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => WalletPaymentSummaryDialog(
+        amount: amount,
+        paymentOption: selectedPaymentAdd!,
+      ),
+    );
+
+    // If payment was successful, refresh wallet balance
+    if (paymentSuccess == true) {
+      await fetchWalletBalance();
+
+      // Optionally clear the amount input
+      _addMoneyController.clear();
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Wallet balance updated successfully!")),
       );
     }
   }
 
-  void withdrawMoney() {
-    final amount = double.tryParse(_withdrawController.text);
-    if (amount != null && amount > 0 && amount <= walletBalance) {
-      setState(() {
-        walletBalance -= amount;
-        transactions.insert(0, {
-          "date": DateTime.now().toString().split(' ')[0],
-          "type": "Withdraw",
-          "amount": "₹${amount.toInt()}",
-          "status": "Done",
-        });
-        _withdrawController.clear();
-      });
+  void withdrawMoney() async {
+    final amountText = _withdrawController.text.trim();
+    final amount = double.tryParse(amountText);
+
+    // --- Validation: Amount ---
+    if (amount == null || amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Amount withdrawn successfully")),
+        const SnackBar(content: Text("Please enter a valid amount")),
       );
-    } else {
+      return;
+    }
+
+    // --- Minimum limit ---
+    if (amount < 100) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Minimum withdrawal amount is ₹100")),
+      );
+      return;
+    }
+
+    // --- Payment method check ---
+    if (selectedPaymentWithdrawObj == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select a payment method")),
+      );
+      return;
+    }
+
+    // --- Wallet balance check ---
+    if (amount > walletBalance) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Insufficient wallet balance")),
+      );
+      return;
+    }
+
+    // --- Ask user PIN for verification ---
+    final rootContext = Navigator.of(context).context;
+    final accessKey = await showPinVerificationDialog(rootContext);
+
+    if (accessKey.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text("Invalid amount")));
+      ).showSnackBar(const SnackBar(content: Text("PIN verification failed")));
+      return;
+    }
+
+    try {
+      // --- Show loading indicator ---
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // --- Prepare API payload ---
+      final payload = {
+        "amount": amount,
+        "typeId": selectedPaymentWithdrawObj!['id'],
+        "type": selectedPaymentWithdrawObj!['type'],
+        "accessKey": accessKey, // 🔐 for backend verification
+      };
+
+      // --- Call backend API ---
+      final response = await ApiService.post(
+        ApiEndpoints.withdrawMoney,
+        body: payload,
+      );
+
+      Navigator.pop(context); // close loader
+
+      if (response != null) {
+        await fetchWalletBalance(); // refresh wallet after success
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Withdrawal successful")));
+
+        _withdrawController.clear();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(response['message'] ?? "Withdrawal failed")),
+        );
+      }
+    } catch (e) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: ${e.toString()}")));
     }
   }
 
@@ -306,113 +486,81 @@ class _WalletScreenState extends State<WalletScreen>
     Function(String) onSelect,
     bool showBankDetails,
   ) {
-    final options = ["UPI", "Bank"];
+    final options = [
+      {'id': 'UPI', 'label': 'UPI'},
+      {'id': 'CARD', 'label': 'Card'},
+      {'id': 'NETBANKING', 'label': 'Net Banking'},
+    ];
+
+    // Helper to get fee from gatewayFees list
+    String getFeeText(String method) {
+      final fee = gatewayFees.firstWhere(
+        (e) => e['method'].toString().toLowerCase() == method.toLowerCase(),
+        orElse: () => {'feePercentage': 0},
+      )['feePercentage'];
+      return " - ${fee == 0 ? '0%' : '$fee%'}";
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: options.map((method) {
-            final isSelected = selectedPayment == method;
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-              child: OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(
+        ...options.map((opt) {
+          final method = opt['id']!;
+          final label = opt['label']!;
+          final isSelected = selectedPayment == method;
+          final feeText = getFeeText(method);
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: GestureDetector(
+              onTap: () => onSelect(method),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(
                     color: isSelected
                         ? Colors.yellow.shade700
-                        : Colors.grey.shade400,
-                    width: isSelected ? 2 : 1,
+                        : Colors.grey.shade300,
                   ),
-                  backgroundColor: isSelected
-                      ? Colors.yellow.shade50
-                      : Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                  borderRadius: BorderRadius.circular(10),
+                  color: isSelected ? Colors.yellow.shade50 : Colors.white,
                 ),
-                onPressed: () {
-                  onSelect(method);
-                },
-                child: Text(
-                  method,
-                  style: TextStyle(
-                    color: isSelected ? Colors.black : Colors.grey.shade700,
-                    fontWeight: isSelected
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-        if (showBankDetails && selectedPayment == "Bank")
-          Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.yellow.shade50,
-                          borderRadius: BorderRadius.circular(8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          method == 'UPI'
+                              ? Icons.phone_android
+                              : method == 'CARD'
+                              ? Icons.credit_card
+                              : Icons.account_balance,
+                          color: Colors.black87,
+                          size: 22,
                         ),
-                        padding: const EdgeInsets.all(8),
-                        child: const Icon(
-                          Icons.account_balance,
-                          color: Colors.yellow,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "Bank Account",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          Text(
-                            getMaskedAccount(),
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  InkWell(
-                    onTap: changeBankAccount,
-                    child: Row(
-                      children: const [
+                        const SizedBox(width: 10),
                         Text(
-                          "Change",
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.bold,
+                          "$label$feeText",
+                          style: const TextStyle(
+                            fontSize: 15,
+                            color: Colors.black87,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                        SizedBox(width: 4),
-                        Icon(Icons.edit, size: 18, color: Colors.red),
                       ],
                     ),
-                  ),
-                ],
+                    if (isSelected)
+                      const Icon(Icons.check_circle, color: Colors.green),
+                  ],
+                ),
               ),
             ),
-          ),
+          );
+        }),
       ],
     );
   }
@@ -433,37 +581,90 @@ class _WalletScreenState extends State<WalletScreen>
               decoration: inputDecoration("Enter amount"),
             ),
             const SizedBox(height: 16),
-            const Text("Quick Add"),
+
+            const Text(
+              "Quick Add",
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
             Row(
               children: [100, 500, 1000].map((amount) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 8,
-                  ),
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.yellow.shade700,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
+                final isSelected = selectedQuickAdd == amount;
+
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 6,
                     ),
-                    onPressed: () {
-                      _addMoneyController.text = amount.toString();
-                    },
-                    child: Text(
-                      "$amount",
-                      style: const TextStyle(color: Colors.black),
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          selectedQuickAdd = amount;
+                          _addMoneyController.text = amount.toString();
+                        });
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Colors.yellow.shade50
+                              : Colors.white,
+                          border: Border.all(
+                            color: isSelected
+                                ? Colors.yellow.shade700
+                                : Colors.grey.shade300,
+                            width: 1.5,
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.1),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 16,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              "₹$amount",
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            if (isSelected)
+                              const Padding(
+                                padding: EdgeInsets.only(left: 6),
+                                child: Icon(
+                                  Icons.check_circle,
+                                  color: Colors.green,
+                                  size: 18,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 );
               }).toList(),
             ),
+
             const SizedBox(height: 16),
+
             const Text("Payment Method"),
             paymentOptions(selectedPaymentAdd, (val) {
               setState(() {
@@ -471,6 +672,7 @@ class _WalletScreenState extends State<WalletScreen>
               });
             }, true),
             const SizedBox(height: 16),
+
             Center(
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -496,6 +698,23 @@ class _WalletScreenState extends State<WalletScreen>
     );
   }
 
+  Future<void> openPaymentSelection(BuildContext context) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            const SelectPaymentGatewayScreen(hideWallet: true),
+      ),
+    );
+
+    if (result != null) {
+      debugPrint("Selected Payment: $result");
+      setState(() {
+        selectedPaymentWithdrawObj = result; // Store selected payment method
+      });
+    }
+  }
+
   Widget withdrawTab() {
     return SingleChildScrollView(
       child: Container(
@@ -512,13 +731,83 @@ class _WalletScreenState extends State<WalletScreen>
               decoration: inputDecoration("Enter amount"),
             ),
             const SizedBox(height: 16),
-            const Text("Payment Method"),
-            paymentOptions(selectedPaymentWithdraw, (val) {
-              setState(() {
-                selectedPaymentWithdraw = val;
-              });
-            }, true),
-            const SizedBox(height: 16),
+
+            const Text(
+              "Payment Method",
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // 🔽 This replaces your old ElevatedButton 🔽
+            if (selectedPaymentWithdrawObj == null)
+              ElevatedButton.icon(
+                onPressed: () => openPaymentSelection(context),
+                icon: const Icon(Icons.account_balance_wallet_outlined),
+                label: const Text("Select Payment Option"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.yellow.shade100,
+                  foregroundColor: Colors.black87,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.yellow.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.yellow.shade700, width: 1.2),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.account_balance, color: Colors.black87),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            selectedPaymentWithdrawObj!['name'] ?? 'N/A',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            "Type: ${selectedPaymentWithdrawObj!['type'] ?? 'Unknown'}",
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.black54,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.check_circle,
+                      color: Colors.green,
+                      size: 28,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: Colors.orangeAccent),
+                      onPressed: () => openPaymentSelection(context),
+                    ),
+                  ],
+                ),
+              ),
+
+            const SizedBox(height: 24),
+
             Center(
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(

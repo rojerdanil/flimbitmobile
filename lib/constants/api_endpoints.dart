@@ -85,7 +85,7 @@ class ApiEndpoints {
 
   static const String redirectToPayment =
       "$baseUrl/movieInvest/redirect-to-payment";
-  static const String verifyPayment =
+  static const String verifyPaymentBuyShare =
       "$baseUrl/movieInvest/payment/update-from-flutter";
 
   static const String movieSummaryCounts =
@@ -133,6 +133,70 @@ class ApiEndpoints {
   static const String startShellShare =
       "$baseUrl/sell-share/mobile/start-sell-share";
   static const String userBankAccountsDetails =
-      "$baseUrl/sell-share/mobile/user-gateway-service";
+      "$baseUrl/user-bank/mobile/user-gateway-service";
+  static const String addBankAccount = "$baseUrl/user-bank/mobile/add-bank";
+  static const String addUpiAccount = "$baseUrl/security/mobile/verify-pin";
+  static const String deleteBankAccount = "$baseUrl/security/mobile/verify-pin";
+
+  static const String deleteUpiAccount = "$baseUrl/security/mobile/verify-pin";
+
   static const String verifyPin = "$baseUrl/security/mobile/verify-pin";
+  static const String loginVerifyPin =
+      "$baseUrl/login/mobile/relogin-bin-validation";
+
+  static const String inactivateUserPan =
+      "$baseUrl/users/mobile/deactivate/pan";
+  static const String verifyAndSavePan = "$baseUrl/users/mobile/initiatePan";
+  static const String inactivateUserEmail =
+      "$baseUrl/users/mobile/deactivate/email";
+  static const String sendEmailOtp =
+      "$baseUrl/users/mobile/sendVerificationEmail";
+  static const String verifyEmailOtp = "$baseUrl/users/mobile/verifyEmail/";
+
+  static const String uploadProfileImage =
+      "$baseUrl/users/mobile/upload-profile-image";
+
+  static const String walletAddMoneySummary =
+      "$baseUrl/wallet/mobile/add-money-summary";
+  static const String walletVerifyPaymentSummary =
+      "$baseUrl/wallet/mobile/verify-payment-summary";
+  static const String walletMonyeySuccess =
+      "$baseUrl/wallet/mobile/verify-payment-done";
+  static const String withdrawMoney = "$baseUrl/wallet/moblie/cash-withdraw";
+
+  static const String reward_star_connect_summary =
+      "$baseUrl/user-winners/mobile/user-star-connet-summary";
+  static const String reward_flim_bit_summary =
+      "$baseUrl/user-winners/mobile/user-flimbit-summary";
+
+  static const String reward_star_connect_movie_list =
+      "$baseUrl/user-winners/mobile/user-star-connet-movie";
+  static const String reward_filmbit_movie_list =
+      "$baseUrl/user-winners/mobile/user-flimbit-connet-movie";
+  static const String companyContact = "$baseUrl/login/mobile/company-details";
+
+  static const String security_change_pin =
+      "$baseUrl/security/mobile/change-pin";
+
+  static const String user_setting_read =
+      "$baseUrl/user-setting/mobile/read-user-setting";
+  static const String user_setting_update =
+      "$baseUrl/user-setting/mobile/user-setting-update";
+  static const String logOut = "$baseUrl/security/mobile/logout";
+
+  static const String validateUser = "$baseUrl/users/mobile/validateUser";
+  static const String createToken = "$baseUrl/login/mobile/createToken";
+
+  static const String sendRecoverOtp = "$baseUrl/login/mobile/recover-otp";
+  static const String verifyRecoverOtp =
+      "$baseUrl/login/mobile/recover-otp-validate";
+  static const String verifyRecoverPin =
+      "$baseUrl/login/mobile/recover-bin-validation";
+
+  static const String registerSendOtp = "$baseUrl/loginss/mobile/sendregotp";
+  static const String registerVerifyOtp =
+      "$baseUrl/login/mobile/validateRegOtp";
+
+  static const String registerAllLanguage =
+      "$baseUrl/login/mobile/alllangugage";
 }

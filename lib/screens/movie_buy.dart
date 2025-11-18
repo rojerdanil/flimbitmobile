@@ -4,9 +4,9 @@ import 'package:flutter/services.dart';
 import '../theme/AppTheme.dart';
 import '../services/api_service.dart';
 import '../constants/api_endpoints.dart';
-import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../screens/movie_menu_controller.dart';
+import '../PaymentHandler/buy_share_razorpay_handler.dart';
 
 class MovieBuyScreen extends StatefulWidget {
   final int movieId;
@@ -72,7 +72,6 @@ class _MovieBuyScreenState extends State<MovieBuyScreen>
     },
   ];
   final ScrollController _scrollController = ScrollController(); // 👈 add this
-  late Razorpay _razorpay;
   double platformCommision = 0;
   double profitCommision = 0;
   String? selectedMainTab;
@@ -97,10 +96,6 @@ class _MovieBuyScreenState extends State<MovieBuyScreen>
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
-    _razorpay = Razorpay();
-    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
-    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
 
     if (widget.menu != null) {
       menuController.selectMainTab(widget.menu!);
@@ -143,64 +138,23 @@ class _MovieBuyScreenState extends State<MovieBuyScreen>
     _shareController.dispose();
     _offersPageController.dispose();
     _scrollController.dispose();
-    _razorpay.clear();
     super.dispose();
   }
 
-  void _openRazorpayCheckout(
-    String orderId,
-    double amount,
-    String userName,
-    String userEmail,
-    String userContact,
-  ) {
-    if (kIsWeb) {
-      _handlePaymentSuccess(
-        PaymentSuccessResponse(
-          "test_web_payment", // paymentId
-          orderId ?? "order_test_123", // orderId (use null check or dummy)
-          "test_signature", // signature
-          {}, // data (pass empty map if not available)
-        ),
-      );
-      return;
-    }
-
-    var options = {
-      'key': 'rzp_test_6yjHqZxPkJmvO0',
-      'amount': (amount * 100).toInt(), // amount in paise
-      'name': 'Your App Name',
-      'description': 'Movie Shares Purchase',
-      'order_id': orderId, // from your backend / redirect-to-payment API
-      'prefill': {'contact': userContact, 'email': userEmail, 'name': userName},
-      'external': {
-        'wallets': ['paytm'],
-      },
-    };
-
-    try {
-      _razorpay.open(options);
-    } catch (e) {
-      debugPrint("Error opening Razorpay: $e");
-    }
-  }
-
-  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
-    debugPrint("Payment success: ${response.paymentId}");
-
+  void _handlePaymentSuccessWeb(response) async {
     // 🔹 Call your backend to verify payment
     final payload = {
-      "paymentId": response.paymentId,
-      "orderId": response.orderId,
-      "signature": response.signature,
+      "paymentId": response['paymentId'],
+      "orderId": response['orderId'],
+      "signature": response['signature'],
     };
 
     final verifyResponse = await ApiService.post(
-      ApiEndpoints.verifyPayment,
+      ApiEndpoints.verifyPaymentBuyShare,
       body: payload,
-      context: context,
+      isFullBody: false,
     );
-
+    print(verifyResponse);
     if (verifyResponse != null) {
       // Show success popup
       final popup = await _buildPaymentSuccessPopup();
@@ -211,17 +165,6 @@ class _MovieBuyScreenState extends State<MovieBuyScreen>
         const SnackBar(content: Text("Payment verification failed")),
       );
     }
-  }
-
-  void _handlePaymentError(PaymentFailureResponse response) {
-    debugPrint("Payment failed: ${response.code} - ${response.message}");
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Payment failed: ${response.message}")),
-    );
-  }
-
-  void _handleExternalWallet(ExternalWalletResponse response) {
-    debugPrint("External wallet selected: ${response.walletName}");
   }
 
   // --- Helpers ---
@@ -933,22 +876,26 @@ class _MovieBuyScreenState extends State<MovieBuyScreen>
       if (response != null) {
         final orderNo = response?['orderNo'];
         final status = response?['status'];
+        final paymentRequest = response?['paymentResponse'];
 
-        if (orderNo != null) {
+        if (paymentRequest != null) {
           // 🔹 Trigger your payment popup
-          final orderId = response['orderNo'];
-          print(orderId);
 
-          double totalPayable =
-              double.tryParse(payload['totalPayable'].toString()) ?? 0.0;
+          if (kIsWeb) {
+            final rePayload = {
+              "paymentId": "web test",
+              "orderId": response?['orderNo'],
+              "signature": "",
+            };
+            _handlePaymentSuccessWeb(rePayload);
+            return;
+          }
 
-          _openRazorpayCheckout(
-            orderId,
-            totalPayable,
-            'test',
-            'rojertest@gmail.com',
-            "test",
+          final razorpayHandler = RazorpayBuyShareHandler(
+            context: context,
+            response: paymentRequest,
           );
+          razorpayHandler.startPayment();
         } else {
           ScaffoldMessenger.of(
             context,

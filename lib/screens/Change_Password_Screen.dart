@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pinput/pinput.dart';
+import '../services/api_service.dart';
+import '../constants/api_endpoints.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -18,6 +20,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen>
 
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
+  String currentPassword = '';
 
   @override
   void initState() {
@@ -41,11 +44,58 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen>
   bool get isResetEnabled =>
       newCompleted && confirmCompleted && newPassword == confirmPassword;
 
-  void _onResetPressed() {
+  void _onResetPressed() async {
     if (!isResetEnabled) {
+      // Shake confirm PIN field if validation fails
       _shakeController.forward(from: 0);
-    } else {
-      // Reset password logic here
+      return;
+    }
+
+    try {
+      // Show a loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // Prepare payload
+      final payload = {
+        "currentPassword":
+            currentPassword, // You can capture current password from its Pinput
+        "newPassword": newPassword,
+        "confirmPassword": confirmPassword,
+      };
+
+      // Call external API (replace ApiService with your service)
+      final response = await ApiService.post(
+        ApiEndpoints.security_change_pin, // your endpoint
+        body: payload,
+        context: context,
+      );
+
+      Navigator.of(context).pop(); // Close loading dialog
+
+      if (response != null && response['msg'] != null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(response['msg'])));
+
+        // Optionally, navigate back or clear fields
+        setState(() {
+          newPassword = '';
+          confirmPassword = '';
+          newCompleted = false;
+          confirmCompleted = false;
+        });
+      }
+    } catch (e) {
+      Navigator.of(context).pop(); // Close loading dialog
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      // Shake confirm PIN field on error
+      _shakeController.forward(from: 0);
     }
   }
 
@@ -239,6 +289,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen>
                 SizedBox(height: screenHeight * 0.03),
 
                 // Current Password
+                // Current Password
                 buildPinCard(
                   label: "Current Password",
                   helper: "Enter your 6-digit numeric password",
@@ -250,8 +301,12 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen>
                       _obscureCurrent = !_obscureCurrent;
                     });
                   },
-                  currentValue: '',
-                  onCompleted: (pin) {},
+                  currentValue: currentPassword,
+                  onCompleted: (pin) {
+                    setState(() {
+                      currentPassword = pin;
+                    });
+                  },
                 ),
 
                 // New Password

@@ -5,14 +5,16 @@ import '../constants/api_endpoints.dart';
 import '../HomeScreen/movie_sell_share_screen.dart';
 import '../screens/movie_buy.dart';
 
-class MovieListScreen extends StatefulWidget {
-  const MovieListScreen({super.key});
+class UserShareScreen extends StatefulWidget {
+  final bool showAppBar;
+
+  const UserShareScreen({super.key, this.showAppBar = false});
 
   @override
-  State<MovieListScreen> createState() => _MovieListScreenState();
+  State<UserShareScreen> createState() => _MovieListScreenState();
 }
 
-class _MovieListScreenState extends State<MovieListScreen>
+class _MovieListScreenState extends State<UserShareScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   bool isLoading = true;
@@ -163,11 +165,24 @@ class _MovieListScreenState extends State<MovieListScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
+
+      // ✅ Conditional AppBar
+      appBar: widget.showAppBar
+          ? AppBar(
+              backgroundColor: AppTheme.primaryColor,
+              title: const Text("Your Shares"),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
+              ),
+            )
+          : null,
+
       body: isLoading && movies.isEmpty
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // Summary Section
+                // Summary Section (same as your existing code)
                 Padding(
                   padding: const EdgeInsets.all(12.0),
                   child: Card(
@@ -529,7 +544,7 @@ class _MovieListScreenState extends State<MovieListScreen>
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
-                          child: const Text('View'),
+                          child: const Text('Sell'),
                         ),
                       ),
                       const SizedBox(width: 12),
